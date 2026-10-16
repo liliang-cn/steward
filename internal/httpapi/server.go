@@ -25,6 +25,7 @@ import (
 	"github.com/liliang-cn/steward/internal/domain"
 	"github.com/liliang-cn/steward/internal/knowledge"
 	"github.com/liliang-cn/steward/internal/loganalyze"
+	"github.com/liliang-cn/steward/internal/textcut"
 )
 
 // Server holds the shared agent + knowledge store behind the HTTP handlers.
@@ -261,10 +262,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 // truncate shortens s to at most n runes for compact recall context.
 func truncate(s string, n int) string {
 	s = strings.Join(strings.Fields(s), " ")
-	if len(s) > n {
-		return s[:n] + "…"
-	}
-	return s
+	return textcut.Ellipsis(s, n)
 }
 
 // augmentWithRecall prepends cross-session recalled context to a message (when

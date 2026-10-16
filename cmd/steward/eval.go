@@ -17,6 +17,7 @@ import (
 	"github.com/liliang-cn/steward/internal/cite"
 	"github.com/liliang-cn/steward/internal/config"
 	"github.com/liliang-cn/steward/internal/knowledge"
+	"github.com/liliang-cn/steward/internal/textcut"
 )
 
 // evalCase is one row of an eval dataset: a question to ask the agent. Expected
@@ -228,7 +229,7 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n-1] + "…"
+	return textcut.Ellipsis(s, n-1)
 }
 
 func loadEvalDataset(path string) []evalCase {

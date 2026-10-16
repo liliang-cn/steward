@@ -39,6 +39,7 @@ import (
 	"github.com/liliang-cn/steward/internal/salvage"
 	"github.com/liliang-cn/steward/internal/scaffold"
 	"github.com/liliang-cn/steward/internal/schemaimport"
+	"github.com/liliang-cn/steward/internal/textcut"
 )
 
 const version = "steward 0.51.0"
@@ -922,9 +923,7 @@ func runSearch(query string) {
 	}
 	for i, h := range hits {
 		snippet := strings.Join(strings.Fields(h.Content), " ")
-		if len(snippet) > 200 {
-			snippet = snippet[:200] + "…"
-		}
+		snippet = textcut.Ellipsis(snippet, 200)
 		fmt.Printf("%d. [%s] (score %.3f)\n   %s\n", i+1, h.DocumentID, h.Score, snippet)
 	}
 }
@@ -948,17 +947,13 @@ func runSearchGraph(query string) {
 	fmt.Printf("== hits (%d) ==\n", len(gr.Hits))
 	for i, h := range gr.Hits {
 		snippet := strings.Join(strings.Fields(h.Content), " ")
-		if len(snippet) > 160 {
-			snippet = snippet[:160] + "…"
-		}
+		snippet = textcut.Ellipsis(snippet, 160)
 		fmt.Printf("%d. [%s] (%.3f) %s\n", i+1, h.DocumentID, h.Score, snippet)
 	}
 	fmt.Printf("\n== related via graph (%d) ==\n", len(gr.Neighbors))
 	for i, n := range gr.Neighbors {
 		sum := strings.Join(strings.Fields(n.Summary), " ")
-		if len(sum) > 140 {
-			sum = sum[:140] + "…"
-		}
+		sum = textcut.Ellipsis(sum, 140)
 		fmt.Printf("%d. (%s ←%s) %s — %s\n", i+1, n.Type, n.Via, n.Name, sum)
 	}
 }

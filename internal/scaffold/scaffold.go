@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	agdomain "github.com/liliang-cn/agent-go/v3/pkg/domain"
+
+	"github.com/liliang-cn/steward/internal/textcut"
 )
 
 // draft is the JSON shape we ask the LLM to fill.
@@ -178,5 +180,6 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "\n…(truncated)"
+	p, _ := textcut.Prefix(s, n)
+	return p + "\n…(truncated)"
 }

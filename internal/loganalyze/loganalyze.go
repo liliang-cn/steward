@@ -22,6 +22,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/liliang-cn/steward/internal/textcut"
 )
 
 // Finding is one detected problem occurrence.
@@ -521,7 +523,7 @@ func (r *Report) Brief(n int) string {
 func oneLine(s string, max int) string {
 	s = strings.TrimSpace(reWS.ReplaceAllString(s, " "))
 	if len(s) > max {
-		s = s[:max] + "…"
+		s = textcut.Ellipsis(s, max)
 	}
 	return s
 }
