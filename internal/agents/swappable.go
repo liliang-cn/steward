@@ -37,6 +37,9 @@ type SwappableLLM struct {
 type LLMDesc struct {
 	BaseURL string
 	Model   string
+	// ReasoningEffort carries over a model swap: it says how the deployment
+	// wants its models to think, not something one model brought.
+	ReasoningEffort string
 }
 
 // NewSwappableLLM wraps the generator built at startup.

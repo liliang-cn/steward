@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/liliang-cn/agent-go/v3 v3.64.0
+	github.com/liliang-cn/agent-go/v3 v3.65.0
 	github.com/liliang-cn/alchemy v0.7.7
 	github.com/liliang-cn/cortexdb/v2 v2.130.0
 	gopkg.in/yaml.v3 v3.0.1

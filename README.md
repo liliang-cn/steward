@@ -95,6 +95,8 @@ Two memory layers on `/chat`:
 ```
 STEWARD_DOMAIN_FILE     path to the active domain.toml (e.g. examples/example/domain.toml)
 STEWARD_LLM_API_KEY     LLM key (OpenAI-compatible)   STEWARD_LLM_BASE_URL / STEWARD_LLM_MODEL
+STEWARD_LLM_REASONING_EFFORT  reasoning_effort sent on every chat call ("none", "low", …); a local
+                        reasoning model (qwen3.x on ollama) thinks before every call without it
 STEWARD_EMB_API_KEY     embedder key                  STEWARD_EMB_BASE_URL / STEWARD_EMB_MODEL / STEWARD_EMB_DIM
 STEWARD_KNOWLEDGE_DB_PATH  cortexdb path (default ./data/knowledge.db)
 STEWARD_HTTP_ADDR       HTTP API listen address for `serve` (default :7634)

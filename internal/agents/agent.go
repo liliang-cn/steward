@@ -33,11 +33,7 @@ import (
 // LLM builds a bare LLM generator from config (used by scaffolding/extraction
 // paths that need raw generation without the full agent service).
 func LLM(cfg config.Config) (agdomain.Generator, error) {
-	return providers.NewOpenAILLMProvider(&agdomain.OpenAIProviderConfig{
-		BaseURL:  cfg.LLMBaseURL,
-		APIKey:   cfg.LLMAPIKey,
-		LLMModel: cfg.LLMModel,
-	})
+	return NewLLMProvider(LLMDesc{BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel, ReasoningEffort: cfg.LLMReasoningEffort}, cfg.LLMAPIKey)
 }
 
 // StoreOptions is what a domain's vocabulary means to a knowledge store, in one
@@ -100,11 +96,7 @@ func BuildExtractor(cfg config.Config, dom *domain.Domain) (knowledge.DocumentEx
 	if cfg.LLMAPIKey == "" {
 		return nil, nil
 	}
-	llm, err := providers.NewOpenAILLMProvider(&agdomain.OpenAIProviderConfig{
-		BaseURL:  cfg.LLMBaseURL,
-		APIKey:   cfg.LLMAPIKey,
-		LLMModel: cfg.LLMModel,
-	})
+	llm, err := NewLLMProvider(LLMDesc{BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel, ReasoningEffort: cfg.LLMReasoningEffort}, cfg.LLMAPIKey)
 	if err != nil {
 		return nil, fmt.Errorf("build LLM extractor: %w", err)
 	}
@@ -129,11 +121,12 @@ func AlchemyExtractor(cfg config.Config, dom *domain.Domain) (*alchemyclient.Ext
 // Exported so the runtime swap builds its replacement exactly the way startup
 // built the original — a second construction path is a second set of defaults
 // waiting to disagree with the first.
-func NewLLMProvider(baseURL, apiKey, model string) (agdomain.Generator, error) {
+func NewLLMProvider(desc LLMDesc, apiKey string) (agdomain.LLMProvider, error) {
 	return providers.NewOpenAILLMProvider(&agdomain.OpenAIProviderConfig{
-		BaseURL:  baseURL,
-		APIKey:   apiKey,
-		LLMModel: model,
+		BaseURL:         desc.BaseURL,
+		APIKey:          apiKey,
+		LLMModel:        desc.Model,
+		ReasoningEffort: desc.ReasoningEffort,
 	})
 }
 
@@ -144,11 +137,12 @@ func NewLLMProvider(baseURL, apiKey, model string) (agdomain.Generator, error) {
 // the service runs; see swappable.go for why the indirection is here and not in
 // agent-go.
 func Build(cfg config.Config, dom *domain.Domain) (*agent.Service, *knowledge.Store, *SwappableLLM, error) {
-	provider, err := NewLLMProvider(cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel)
+	desc := LLMDesc{BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel, ReasoningEffort: cfg.LLMReasoningEffort}
+	provider, err := NewLLMProvider(desc, cfg.LLMAPIKey)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("init llm: %w", err)
 	}
-	llm := NewSwappableLLM(provider, LLMDesc{BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel})
+	llm := NewSwappableLLM(provider, desc)
 	emb, err := providers.NewOpenAIEmbedderProvider(&agdomain.OpenAIProviderConfig{
 		BaseURL:        cfg.EmbBaseURL,
 		APIKey:         cfg.EmbAPIKey,

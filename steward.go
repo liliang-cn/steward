@@ -303,7 +303,7 @@ func (a *Agent) LLM() LLMSettings {
 // In-flight requests finish on the provider they started with.
 func (a *Agent) SetLLM(s LLMSettings, apiKey string) (LLMSettings, error) {
 	cur := a.llm.Desc()
-	next := agents.LLMDesc{BaseURL: cur.BaseURL, Model: cur.Model}
+	next := agents.LLMDesc{BaseURL: cur.BaseURL, Model: cur.Model, ReasoningEffort: cur.ReasoningEffort}
 	if v := strings.TrimSpace(s.BaseURL); v != "" {
 		next.BaseURL = v
 	}
@@ -318,7 +318,7 @@ func (a *Agent) SetLLM(s LLMSettings, apiKey string) (LLMSettings, error) {
 		return LLMSettings{}, errors.New("set a model: an agent with no model name cannot generate")
 	}
 
-	provider, err := agents.NewLLMProvider(next.BaseURL, key, next.Model)
+	provider, err := agents.NewLLMProvider(next, key)
 	if err != nil {
 		return LLMSettings{}, fmt.Errorf("build llm %s on %s: %w", next.Model, next.BaseURL, err)
 	}

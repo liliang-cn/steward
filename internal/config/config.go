@@ -13,6 +13,10 @@ type Config struct {
 	LLMBaseURL string
 	LLMAPIKey  string
 	LLMModel   string
+	// LLMReasoningEffort is sent as reasoning_effort on every chat completion
+	// ("none", "low", …); empty sends nothing. A local reasoning model thinks
+	// before every call otherwise.
+	LLMReasoningEffort string
 
 	// Embedder (for cortexdb GraphRAG memory)
 	EmbBaseURL string
@@ -42,7 +46,7 @@ type Config struct {
 
 // Load reads config from environment variables with sensible defaults.
 //
-//	STEWARD_LLM_BASE_URL / STEWARD_LLM_API_KEY / STEWARD_LLM_MODEL
+//	STEWARD_LLM_BASE_URL / STEWARD_LLM_API_KEY / STEWARD_LLM_MODEL / STEWARD_LLM_REASONING_EFFORT
 //	STEWARD_EMB_BASE_URL / STEWARD_EMB_API_KEY / STEWARD_EMB_MODEL
 //	STEWARD_DB_PATH
 //	STEWARD_ALCHEMY_ADDR / STEWARD_ALCHEMY_TOKEN / STEWARD_ALCHEMY_TLS
@@ -53,6 +57,7 @@ func Load() Config {
 		LLMBaseURL:             llmBase,
 		LLMAPIKey:              llmKey,
 		LLMModel:               env("STEWARD_LLM_MODEL", "gpt-4o"),
+		LLMReasoningEffort:     Getenv("STEWARD_LLM_REASONING_EFFORT"),
 		EmbBaseURL:             env("STEWARD_EMB_BASE_URL", llmBase),
 		EmbAPIKey:              env("STEWARD_EMB_API_KEY", llmKey),
 		EmbModel:               env("STEWARD_EMB_MODEL", "text-embedding-3-small"),
