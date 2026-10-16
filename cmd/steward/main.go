@@ -54,6 +54,8 @@ func main() {
 		runAsk(strings.Join(os.Args[2:], " "))
 	case "ingest":
 		runIngest(strings.Join(os.Args[2:], " "))
+	case "purge":
+		runPurge(os.Args[2:])
 	case "ingest-api":
 		runIngestAPI(os.Args[2:])
 	case "ingest-cli":
@@ -63,7 +65,7 @@ func main() {
 	case "refresh":
 		runRefresh(strings.Join(os.Args[2:], " "))
 	case "import-graph":
-		runImportGraph(strings.Join(os.Args[2:], " "))
+		runImportGraph(os.Args[2:])
 	case "import-schema":
 		runImportSchema(strings.Join(os.Args[2:], " "))
 	case "import-model":
@@ -767,9 +769,24 @@ func runAnalyzeLog(path string) {
 
 // runImportGraph loads an Understand-Anything knowledge-graph.json into cortexdb
 // (node summaries → vectors, nodes/edges → ontology graph).
-func runImportGraph(path string) {
+func runImportGraph(args []string) {
+	// --repo names the repository the graph is filed under; by default it is
+	// the directory the graph sits in, which is whatever the checkout happened
+	// to be called (haify's is still "sds" on more than one machine).
+	repo := ""
+	if len(args) > 0 {
+		if v, ok := strings.CutPrefix(args[0], "--repo="); ok {
+			repo, args = v, args[1:]
+		} else if args[0] == "--repo" && len(args) > 1 {
+			repo, args = args[1], args[2:]
+		}
+	}
+	path := strings.Join(args, " ")
 	if strings.TrimSpace(path) == "" {
-		fail("usage: steward import-graph <knowledge-graph.json>")
+		fail("usage: steward import-graph [--repo <name>] <knowledge-graph.json>")
+	}
+	if repo == "" {
+		repo = repoName(filepath.Dir(path))
 	}
 	cfg := config.Load()
 	if cfg.EmbAPIKey == "" {
@@ -780,7 +797,7 @@ func runImportGraph(path string) {
 		fail("open knowledge: %v", err)
 	}
 	defer store.Close()
-	st, err := graphimport.Import(context.Background(), store, path, repoName(filepath.Dir(path)), loadDomain(cfg).Vocabulary.Code)
+	st, err := graphimport.Import(context.Background(), store, path, repo, loadDomain(cfg).Vocabulary.Code)
 	if err != nil {
 		fail("import graph: %v", err)
 	}
@@ -993,6 +1010,7 @@ usage:
   steward analyze-log <path>  triage a log file / dir / .tar.gz / .zip, then AI diagnosis
   steward ingest <dir>        ingest *.md docs from a directory
   steward ingest-repo <url>   one-liner: clone → understand → import (auto-salvages a stall)
+  steward purge <document-id> | --prefix <p>   remove a source's chunks and graph nodes
   steward ingest-cli [--repo R [--code-path D]] <bin>   a command line's --help as a reference and a graph
   steward ingest-api [--repo R [--code-path D]] [--cli BIN] <spec>   an OpenAPI/Swagger spec as a graph
   steward refresh <url|dir>   purge one source (catches deletions) and re-import it
@@ -1186,4 +1204,28 @@ func runIngestAPI(args []string) {
 	}
 	fmt.Printf("graphed %s — %d operations, %d schemas, %d linked to code, %d linked to commands, into %s\n",
 		name, st.Operations, st.Schemas, st.Implemented, st.Commands, cfg.KnowledgeDBPath)
+}
+
+// runPurge removes sources by document id: one, or every id starting with a
+// prefix. It is what a build that starts from a previous knowledge base uses
+// to drop what it is about to rebuild and keep what it is not.
+func runPurge(args []string) {
+	prefix := false
+	if len(args) > 0 && args[0] == "--prefix" {
+		prefix, args = true, args[1:]
+	}
+	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
+		fail("usage: steward purge <document-id>  |  steward purge --prefix <id-prefix>")
+	}
+	cfg := config.Load()
+	store, err := openKnowledge(cfg)
+	if err != nil {
+		fail("open knowledge: %v", err)
+	}
+	defer store.Close()
+	embN, nodeN, err := store.PurgeSource(context.Background(), args[0], prefix)
+	if err != nil {
+		fail("purge %s: %v", args[0], err)
+	}
+	fmt.Printf("purged %s — %d chunks, %d graph nodes\n", args[0], embN, nodeN)
 }
