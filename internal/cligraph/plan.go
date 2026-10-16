@@ -205,6 +205,7 @@ type CodeSymbol struct {
 	ID       string // graph node id
 	Name     string
 	FilePath string
+	Summary  string
 }
 
 // Link adds an implemented_by edge from each command to the function that
@@ -217,7 +218,18 @@ type CodeSymbol struct {
 // the repository is not a link — drbd-reactor has a `status` in the daemon as
 // well as in drbd-reactorctl, and an edge to the wrong one is worse than none:
 // it reads as the answer. Each edge records it was matched by name.
+//
+// The handler is also written into the command's own text, with the code
+// graph's summary of it. The edge alone did not reach the answer: retrieval
+// expands a few neighbours per hit, and a command's flags and its siblings
+// under the root filled them before the handler did, so "how is restart
+// --with-targets implemented" found the command and had to search the code
+// again for what the command's node already knew.
 func (p *Plan) Link(symbols []CodeSymbol) (unlinked []string) {
+	entity := map[string]int{}
+	for i, e := range p.Entities {
+		entity[e.ID] = i
+	}
 	byKey := map[string][]CodeSymbol{}
 	for _, s := range symbols {
 		if !belongsToBinary(s.FilePath, p.Bin) {
@@ -249,13 +261,35 @@ func (p *Plan) Link(symbols []CodeSymbol) (unlinked []string) {
 			unlinked = append(unlinked, name)
 			continue
 		}
+		id := commandID(p.Bin, c.Path)
+		h := hits[0]
 		p.Relations = append(p.Relations, knowledge.GraphRelation{
-			From: commandID(p.Bin, c.Path), To: hits[0].ID, Type: ImplementedByType,
-			Metadata: map[string]string{"cli": p.Bin, "resolution": "name", "file_path": hits[0].FilePath},
+			From: id, To: h.ID, Type: ImplementedByType,
+			Metadata: map[string]string{"cli": p.Bin, "resolution": "name", "file_path": h.FilePath},
 		})
+		impl := "Implemented by `" + h.Name + "` in " + h.FilePath
+		if h.Summary != "" {
+			impl += ": " + h.Summary
+		}
+		// Second line, under the command's one-line summary: retrieval shows
+		// the start of a hit, and a long synopsis would push this out of it.
+		p.Embed[id] = insertAfterFirstLine(p.Embed[id], impl)
+		if i, ok := entity[id]; ok {
+			p.Entities[i].Description = insertAfterFirstLine(p.Entities[i].Description, impl)
+			p.Entities[i].Metadata["implemented_by"] = h.Name
+			p.Entities[i].Metadata["implemented_in"] = h.FilePath
+		}
 	}
 	sort.Strings(unlinked)
 	return unlinked
+}
+
+func insertAfterFirstLine(text, line string) string {
+	first, rest, ok := strings.Cut(text, "\n")
+	if !ok {
+		return text + "\n" + line
+	}
+	return first + "\n" + line + "\n" + rest
 }
 
 // normalize folds the spellings one name takes across languages: start-until,

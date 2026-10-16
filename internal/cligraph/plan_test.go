@@ -65,7 +65,7 @@ func TestLinkFindsTheHandlerInTheBinarysOwnFile(t *testing.T) {
 	p := evictPlan(t)
 	unlinked := p.Link([]CodeSymbol{
 		{ID: "f:main", Name: "main", FilePath: "src/bin/drbd-reactorctl.rs"},
-		{ID: "f:evict", Name: "evict", FilePath: "src/bin/drbd-reactorctl.rs"},
+		{ID: "f:evict", Name: "evict", FilePath: "src/bin/drbd-reactorctl.rs", Summary: "Handles the evict subcommand"},
 		{ID: "f:start_until", Name: "start_until", FilePath: "src/bin/drbd-reactorctl.rs"},
 		{ID: "f:daemon-main", Name: "main", FilePath: "src/main.rs"},
 		// a status in the daemon and none in the CLI: not a link
@@ -95,6 +95,9 @@ func TestLinkFindsTheHandlerInTheBinarysOwnFile(t *testing.T) {
 	}
 	if len(links) != len(want) {
 		t.Errorf("links = %v", links)
+	}
+	if text := p.Embed["cli:drbd-reactorctl:evict"]; !strings.Contains(text, "Implemented by `evict` in src/bin/drbd-reactorctl.rs: Handles the evict subcommand") {
+		t.Errorf("the command's text does not name its handler: %q", text)
 	}
 	if strings.Join(unlinked, ",") != "drbd-reactorctl edit,drbd-reactorctl status" {
 		t.Errorf("unlinked = %v", unlinked)

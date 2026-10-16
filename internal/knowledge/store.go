@@ -1509,6 +1509,7 @@ type CodeFunction struct {
 	ID       string // graph node id
 	Name     string
 	FilePath string
+	Summary  string
 }
 
 // CodeFunctions lists the functions the code graph imported for repo holds,
@@ -1526,10 +1527,11 @@ func (s *Store) CodeFunctions(ctx context.Context, repo string) ([]CodeFunction,
 	for _, n := range nodes {
 		name, _ := n.Properties["name"].(string)
 		file, _ := n.Properties["file_path"].(string)
+		summary, _ := n.Properties["description"].(string)
 		if name == "" {
 			name = n.Content
 		}
-		out = append(out, CodeFunction{ID: n.ID, Name: name, FilePath: file})
+		out = append(out, CodeFunction{ID: n.ID, Name: name, FilePath: file, Summary: summary})
 	}
 	return out, nil
 }

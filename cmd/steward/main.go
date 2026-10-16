@@ -379,7 +379,7 @@ func runIngestCLI(args []string) {
 		}
 		syms := make([]cligraph.CodeSymbol, 0, len(fns))
 		for _, f := range fns {
-			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath})
+			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary})
 		}
 		if unlinked := plan.Link(syms); len(unlinked) > 0 {
 			fmt.Fprintf(os.Stderr, "  %d command(s) not linked to code in %s: %s\n", len(unlinked), repo, strings.Join(unlinked, ", "))
