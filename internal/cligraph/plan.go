@@ -64,10 +64,38 @@ func commandName(bin string, p []string) string {
 func Build(bin string, cmds []Command) *Plan {
 	p := &Plan{Bin: bin, DocID: DocID(bin), Embed: map[string]string{}, Commands: cmds}
 	known := map[string]bool{}
+	byPath := map[string]Command{}
 	for _, c := range cmds {
 		known[commandID(bin, c.Path)] = true
+		byPath[strings.Join(c.Path, " ")] = c
+	}
+	// cobra repeats the root's persistent flags under "Global Flags" on every
+	// subcommand: haify's nine became 1,854 flag nodes, one per command, each
+	// as close to a question as the command's own. A global flag an ancestor
+	// already lists is that ancestor's, and is left there.
+	inherited := func(c Command, f Flag) bool {
+		if !f.Global {
+			return false
+		}
+		for n := len(c.Path) - 1; n >= 0; n-- {
+			if a, ok := byPath[strings.Join(c.Path[:n], " ")]; ok {
+				for _, af := range a.Flags {
+					if af.Name() == f.Name() {
+						return true
+					}
+				}
+			}
+		}
+		return false
 	}
 	for _, c := range cmds {
+		own := c.Flags[:0:0]
+		for _, f := range c.Flags {
+			if !inherited(c, f) {
+				own = append(own, f)
+			}
+		}
+		c.Flags = own
 		id := commandID(bin, c.Path)
 		name := commandName(bin, c.Path)
 		p.Embed[id] = commandText(name, c)

@@ -135,3 +135,23 @@ func TestCobraHandlerNames(t *testing.T) {
 		t.Fatalf("cobra constructor not linked: %+v", p.Relations)
 	}
 }
+
+// cobra lists the root's persistent flags under every subcommand; they belong
+// to the root and are not repeated per command.
+func TestGlobalFlagsStayWithTheirOwner(t *testing.T) {
+	root := Parse(Page{Help: "Tool\n\nUsage:\n  tool [command]\n\nAvailable Commands:\n  run  Run\n\nFlags:\n  -c, --controller string   Controller address (default \"127.0.0.1:3374\")\n"})
+	run := Parse(Page{Path: []string{"run"}, Help: "Run\n\nUsage:\n  tool run [flags]\n\nFlags:\n      --now   Right away\n\nGlobal Flags:\n  -c, --controller string   Controller address (default \"127.0.0.1:3374\")\n"})
+	p := Build("tool", []Command{root, run})
+	var flags []string
+	for _, e := range p.Entities {
+		if e.Type == FlagType {
+			flags = append(flags, e.ID)
+		}
+	}
+	if strings.Join(flags, ",") != "cli:tool:--controller,cli:tool:run:--now" {
+		t.Fatalf("flag nodes = %v", flags)
+	}
+	if strings.Contains(p.Embed["cli:tool:run"], "--controller") {
+		t.Error("the subcommand's text repeats the root's global flag")
+	}
+}
