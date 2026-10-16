@@ -4,9 +4,9 @@ go 1.25.5
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/liliang-cn/agent-go/v3 v3.33.0
+	github.com/liliang-cn/agent-go/v3 v3.64.0
 	github.com/liliang-cn/alchemy v0.7.7
-	github.com/liliang-cn/cortexdb/v2 v2.113.0
+	github.com/liliang-cn/cortexdb/v2 v2.130.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -30,9 +30,6 @@ require (
 )
 
 require (
-	github.com/0x51-dev/rdf v0.1.0 // indirect
-	github.com/0x51-dev/rids v0.1.0 // indirect
-	github.com/0x51-dev/upeg v0.1.0 // indirect
 	github.com/JohannesKaufmann/dom v0.3.1 // indirect
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2 // indirect
 	github.com/PuerkitoBio/goquery v1.13.0 // indirect
