@@ -40,6 +40,36 @@ const relevanceFloor = 0.6
 // enough for a code base to answer an operations question on its own.
 const codeSourceShare = 0.5
 
+// referenceSourceShare bounds a command-line reference (ingest-cli's command,
+// flag and argument nodes). A command has a dozen flags, each its own node and
+// each close to any question about the command, so uncapped they took all five
+// slots of "which function implements evict, and what does it call?" and the
+// code that answers the second half never reached the result.
+const referenceSourceShare = 0.6
+
+// SourceCLIReference is the source a command-line graph's nodes are embedded
+// under; see referenceSourceShare.
+const SourceCLIReference = "cli-help"
+
+type sourceKind int
+
+const (
+	proseSource sourceKind = iota
+	referenceSource
+	codeSource
+)
+
+// kindOf sorts a retrieved chunk into the pool it is recalled from.
+func kindOf(meta map[string]string, docID string) sourceKind {
+	switch {
+	case isCodeSource(meta, docID):
+		return codeSource
+	case meta["source"] == SourceCLIReference:
+		return referenceSource
+	}
+	return proseSource
+}
+
 // isCodeSource reports whether a retrieved chunk came from a code-graph import
 // (`ingest-repo` → graphimport), rather than from prose — runbooks, guides, the
 // incident notes an operator actually needs.
@@ -74,8 +104,8 @@ func IsCodeDocumentID(docID string) bool {
 //
 // The cost is a second embedding of the query per search. That is the price of
 // an operations answer surviving a code import.
-func (s *Store) recallBySource(ctx context.Context, query string, topK int) (prose, code []core.ScoredEmbedding, err error) {
-	recall := func(wantCode bool) ([]core.ScoredEmbedding, error) {
+func (s *Store) recallBySource(ctx context.Context, query string, topK int) (prose, reference, code []core.ScoredEmbedding, err error) {
+	recall := func(want sourceKind) ([]core.ScoredEmbedding, error) {
 		return s.db.HybridSearchTextWithOptions(ctx, query, cortexdb.TextSearchOptions{
 			TopK:     topK,
 			Reranker: searchReranker,
@@ -83,17 +113,29 @@ func (s *Store) recallBySource(ctx context.Context, query string, topK int) (pro
 			// internally until TopK candidates pass, which is exactly the
 			// guarantee a post-hoc filter cannot give.
 			Authorize: func(e core.ScoredEmbedding) bool {
-				return isCodeSource(e.Metadata, e.Metadata["document_id"]) == wantCode
+				return kindOf(e.Metadata, e.Metadata["document_id"]) == want
 			},
 		})
 	}
-	if prose, err = recall(false); err != nil {
-		return nil, nil, err
+	if prose, err = recall(proseSource); err != nil {
+		return nil, nil, nil, err
 	}
-	if code, err = recall(true); err != nil {
-		return nil, nil, err
+	if reference, err = recall(referenceSource); err != nil {
+		return nil, nil, nil, err
 	}
-	return prose, code, nil
+	if code, err = recall(codeSource); err != nil {
+		return nil, nil, nil, err
+	}
+	return prose, reference, code, nil
+}
+
+// mergeSources is the result a search returns: prose uncapped, a command-line
+// reference and code each capped at their share.
+func mergeSources(prose, reference, code []core.ScoredEmbedding, n int) []core.ScoredEmbedding {
+	return mergePools(n,
+		sourcePool{items: prose},
+		sourcePool{items: reference, share: referenceSourceShare},
+		sourcePool{items: code, share: codeSourceShare})
 }
 
 // mergeByQuota interleaves the two recalls into one relevance-ordered result of
@@ -108,37 +150,62 @@ func (s *Store) recallBySource(ctx context.Context, query string, topK int) (pro
 // and every slot is filled, so a question about the code base is still answered
 // from the code base.
 func mergeByQuota(prose, code []core.ScoredEmbedding, n int) []core.ScoredEmbedding {
-	prose = pruneByRelevance(prose, relevanceFloor, len(prose))
-	code = pruneByRelevance(code, relevanceFloor, len(code))
+	return mergePools(n, sourcePool{items: prose}, sourcePool{items: code, share: codeSourceShare})
+}
 
-	codeCap := int(float64(n) * codeSourceShare)
-	if codeCap < 1 {
-		codeCap = 1
-	}
-	if len(prose) == 0 {
-		codeCap = n
-	}
-	if len(code) > codeCap {
-		code = code[:codeCap]
-	}
+// sourcePool is one source's recall and the share of a result it may take;
+// zero is uncapped.
+type sourcePool struct {
+	items []core.ScoredEmbedding
+	share float64
+}
 
-	out := make([]core.ScoredEmbedding, 0, n)
-	i, j := 0, 0
-	for len(out) < n && (i < len(prose) || j < len(code)) {
-		switch {
-		case j >= len(code):
-			out = append(out, prose[i])
-			i++
-		case i >= len(prose):
-			out = append(out, code[j])
-			j++
-		case prose[i].Score >= code[j].Score:
-			out = append(out, prose[i])
-			i++
-		default:
-			out = append(out, code[j])
-			j++
+// mergePools generalises mergeByQuota to any number of sources: each is pruned
+// against its own best score, capped at its share unless every other source
+// came back empty, and the survivors are merged by score. A tie goes to the
+// pool listed first.
+func mergePools(n int, pools ...sourcePool) []core.ScoredEmbedding {
+	for i := range pools {
+		pools[i].items = pruneByRelevance(pools[i].items, relevanceFloor, len(pools[i].items))
+	}
+	for i := range pools {
+		if pools[i].share <= 0 {
+			continue
 		}
+		others := false
+		for j := range pools {
+			if j != i && len(pools[j].items) > 0 {
+				others = true
+			}
+		}
+		if !others {
+			continue
+		}
+		limit := int(float64(n) * pools[i].share)
+		if limit < 1 {
+			limit = 1
+		}
+		if len(pools[i].items) > limit {
+			pools[i].items = pools[i].items[:limit]
+		}
+	}
+	out := make([]core.ScoredEmbedding, 0, n)
+	next := make([]int, len(pools))
+	for len(out) < n {
+		best := -1
+		for i := range pools {
+			if next[i] >= len(pools[i].items) {
+				continue
+			}
+			if best < 0 || pools[i].items[next[i]].Score > pools[best].items[next[best]].Score {
+				best = i
+			}
+		}
+		if best < 0 {
+			break
+		}
+		out = append(out, pools[best].items[next[best]])
+		next[best]++
 	}
 	return out
 }
@@ -472,11 +539,11 @@ func (s *Store) searchGraphLocal(ctx context.Context, query string, topK int) (*
 	// across queries (and decay smoothly), so an absolute MinScore either keeps
 	// everything or empties the result — a relative floor drops the off-topic tail
 	// without that risk, raising the precision of the agent's context.
-	prose, code, err := s.recallBySource(ctx, query, topK)
+	prose, reference, code, err := s.recallBySource(ctx, query, topK)
 	if err != nil {
 		return nil, err
 	}
-	results := mergeByQuota(prose, code, topK)
+	results := mergeSources(prose, reference, code, topK)
 	res := &GraphResult{}
 	// The graph stores nodes under cortexdb-normalized "entity:" ids, while the
 	// embedding/chunk id is the raw node id (e.g. "function:pkg/main.c:foo").
@@ -1339,11 +1406,11 @@ func (s *Store) SearchSemantic(ctx context.Context, query string, topK int) ([]H
 	if topK <= 0 {
 		topK = 6
 	}
-	prose, code, err := s.recallBySource(ctx, query, topK)
+	prose, reference, code, err := s.recallBySource(ctx, query, topK)
 	if err != nil {
 		return nil, err
 	}
-	results := mergeByQuota(prose, code, topK)
+	results := mergeSources(prose, reference, code, topK)
 	hits := make([]Hit, 0, len(results))
 	for _, r := range results {
 		docID := r.Metadata["document_id"]
@@ -1510,6 +1577,8 @@ type CodeFunction struct {
 	Name     string
 	FilePath string
 	Summary  string
+	// Calls names the functions this one calls, by the code graph's calls edges.
+	Calls []string
 }
 
 // CodeFunctions lists the functions the code graph imported for repo holds,
@@ -1532,6 +1601,24 @@ func (s *Store) CodeFunctions(ctx context.Context, repo string) ([]CodeFunction,
 			name = n.Content
 		}
 		out = append(out, CodeFunction{ID: n.ID, Name: name, FilePath: file, Summary: summary})
+	}
+	byID := make(map[string]string, len(out))
+	for _, f := range out {
+		byID[f.ID] = f.Name
+	}
+	for i := range out {
+		edges, err := s.db.Graph().GetEdges(ctx, out[i].ID, "out")
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range edges {
+			if e.EdgeType != "calls" {
+				continue
+			}
+			if name := byID[e.ToNodeID]; name != "" && name != out[i].Name {
+				out[i].Calls = append(out[i].Calls, name)
+			}
+		}
 	}
 	return out, nil
 }

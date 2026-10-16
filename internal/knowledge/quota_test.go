@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/liliang-cn/cortexdb/v2/pkg/core"
@@ -138,5 +139,34 @@ func TestSourceQuotaPassesThroughSmallResults(t *testing.T) {
 	pool := []core.ScoredEmbedding{codeChunk("c1", 0.02)}
 	if got := mergeByQuota(nil, pool, 6); len(got) != 1 {
 		t.Fatalf("a single candidate must pass through, got %d", len(got))
+	}
+}
+
+func referenceChunk(id string, score float64) core.ScoredEmbedding {
+	return core.ScoredEmbedding{
+		Embedding: core.Embedding{ID: id, Metadata: map[string]string{"document_id": "tool-help", "source": SourceCLIReference}},
+		Score:     score,
+	}
+}
+
+// A command's flags are each a node and each near any question about the
+// command: uncapped they took every slot of "which function implements evict,
+// and what does it call", and the code answering the second half was lost.
+func TestReferenceShareLeavesRoomForCode(t *testing.T) {
+	ref := []core.ScoredEmbedding{
+		referenceChunk("cmd", 0.026), referenceChunk("flag-a", 0.026), referenceChunk("flag-b", 0.025),
+		referenceChunk("flag-c", 0.025), referenceChunk("arg", 0.024),
+	}
+	code := []core.ScoredEmbedding{codeChunk("evict_resources", 0.021), codeChunk("evict_resource", 0.020)}
+	got := mergeSources(nil, ref, code, 5)
+	if want := "cmd flag-a flag-b evict_resources evict_resource"; strings.Join(idsOf(got), " ") != want {
+		t.Fatalf("result = %v, want %s", idsOf(got), want)
+	}
+	// Alone, the reference fills every slot.
+	if got := mergeSources(nil, ref, nil, 5); len(got) != 5 {
+		t.Fatalf("an all-reference pool kept %d of 5", len(got))
+	}
+	if kindOf(ref[0].Metadata, "tool-help") != referenceSource {
+		t.Fatal("a cli-help chunk is not recalled as reference")
 	}
 }

@@ -65,7 +65,7 @@ func TestLinkFindsTheHandlerInTheBinarysOwnFile(t *testing.T) {
 	p := evictPlan(t)
 	unlinked := p.Link([]CodeSymbol{
 		{ID: "f:main", Name: "main", FilePath: "src/bin/drbd-reactorctl.rs"},
-		{ID: "f:evict", Name: "evict", FilePath: "src/bin/drbd-reactorctl.rs", Summary: "Handles the evict subcommand"},
+		{ID: "f:evict", Name: "evict", FilePath: "src/bin/drbd-reactorctl.rs", Summary: "Handles the evict subcommand", Calls: []string{"evict_resources", "evict_unmask_and_start"}},
 		{ID: "f:start_until", Name: "start_until", FilePath: "src/bin/drbd-reactorctl.rs"},
 		{ID: "f:daemon-main", Name: "main", FilePath: "src/main.rs"},
 		// a status in the daemon and none in the CLI: not a link
@@ -96,7 +96,7 @@ func TestLinkFindsTheHandlerInTheBinarysOwnFile(t *testing.T) {
 	if len(links) != len(want) {
 		t.Errorf("links = %v", links)
 	}
-	if text := p.Embed["cli:drbd-reactorctl:evict"]; !strings.Contains(text, "Implemented by `evict` in src/bin/drbd-reactorctl.rs: Handles the evict subcommand") {
+	if text := p.Embed["cli:drbd-reactorctl:evict"]; !strings.Contains(text, "Implemented by `evict` in src/bin/drbd-reactorctl.rs: Handles the evict subcommand. It calls `evict_resources`, `evict_unmask_and_start`.") {
 		t.Errorf("the command's text does not name its handler: %q", text)
 	}
 	if strings.Join(unlinked, ",") != "drbd-reactorctl edit,drbd-reactorctl status" {
@@ -109,6 +109,12 @@ func TestCobraHandlerNames(t *testing.T) {
 	p.Link([]CodeSymbol{{ID: "f:1", Name: "newGatewayNfsCreateCmd", FilePath: "cmd/cli/gateway_nfs.go"}})
 	if len(p.Relations) != 0 {
 		t.Fatalf("linked across a file that is not named for the binary: %+v", p.Relations)
+	}
+	p = Build("haify", []Command{{Path: []string{"gateway", "nfs", "create"}}})
+	p.CodePath = "cmd/cli"
+	p.Link([]CodeSymbol{{ID: "f:1", Name: "newGatewayNfsCreateCmd", FilePath: "cmd/cli/gateway_nfs.go"}})
+	if len(p.Relations) != 1 || p.Relations[0].To != "f:1" {
+		t.Fatalf("--code-path did not admit cmd/cli: %+v", p.Relations)
 	}
 	p = Build("cli", []Command{{Path: []string{"gateway", "nfs", "create"}}})
 	p.Link([]CodeSymbol{{ID: "f:1", Name: "newGatewayNfsCreateCmd", FilePath: "cmd/cli/gateway_nfs.go"}})

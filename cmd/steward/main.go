@@ -307,18 +307,25 @@ func runIngestCLI(args []string) {
 	// --repo names the imported code graph whose functions the commands are
 	// linked to. It comes before the binary because everything after the
 	// binary is passed to it.
-	repo := ""
-	for len(args) > 0 && strings.HasPrefix(args[0], "--repo") {
-		if v, ok := strings.CutPrefix(args[0], "--repo="); ok {
-			repo, args = v, args[1:]
+	// --code-path is where that code lives when it is not named for the
+	// binary (haify's is cmd/cli).
+	repo, codePath := "", ""
+	for len(args) > 0 && (strings.HasPrefix(args[0], "--repo") || strings.HasPrefix(args[0], "--code-path")) {
+		target := &repo
+		flag := "--repo"
+		if strings.HasPrefix(args[0], "--code-path") {
+			target, flag = &codePath, "--code-path"
+		}
+		if v, ok := strings.CutPrefix(args[0], flag+"="); ok {
+			*target, args = v, args[1:]
 		} else if len(args) > 1 {
-			repo, args = args[1], args[2:]
+			*target, args = args[1], args[2:]
 		} else {
 			args = args[1:]
 		}
 	}
 	if len(args) == 0 {
-		fail("usage: steward ingest-cli [--repo <code-graph-repo>] <binary> [args-before-subcommands...]\n" +
+		fail("usage: steward ingest-cli [--repo <code-graph-repo> [--code-path <dir>]] <binary> [args-before-subcommands...]\n" +
 			"  e.g. steward ingest-cli /usr/local/bin/sds-cli\n" +
 			"       steward ingest-cli --repo drbd-reactor drbd-reactorctl   (links commands to the code graph)")
 	}
@@ -372,6 +379,7 @@ func runIngestCLI(args []string) {
 		cmds = append(cmds, cligraph.Parse(cligraph.Page{Path: p.Path, Help: p.Help}))
 	}
 	plan := cligraph.Build(name, cmds)
+	plan.CodePath = codePath
 	if repo != "" {
 		fns, ferr := store.CodeFunctions(ctx, repo)
 		if ferr != nil {
@@ -379,7 +387,7 @@ func runIngestCLI(args []string) {
 		}
 		syms := make([]cligraph.CodeSymbol, 0, len(fns))
 		for _, f := range fns {
-			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary})
+			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary, Calls: f.Calls})
 		}
 		if unlinked := plan.Link(syms); len(unlinked) > 0 {
 			fmt.Fprintf(os.Stderr, "  %d command(s) not linked to code in %s: %s\n", len(unlinked), repo, strings.Join(unlinked, ", "))

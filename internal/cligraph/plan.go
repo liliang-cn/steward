@@ -43,6 +43,10 @@ type Plan struct {
 	Entities  []knowledge.GraphEntity
 	Relations []knowledge.GraphRelation
 	Commands  []Command
+	// CodePath is where the command line's code lives, for a binary whose
+	// source is not named after it (haify's is cmd/cli). Empty: files and
+	// directories named for the binary.
+	CodePath string
 }
 
 func commandID(bin string, p []string) string {
@@ -206,6 +210,7 @@ type CodeSymbol struct {
 	Name     string
 	FilePath string
 	Summary  string
+	Calls    []string
 }
 
 // Link adds an implemented_by edge from each command to the function that
@@ -232,7 +237,7 @@ func (p *Plan) Link(symbols []CodeSymbol) (unlinked []string) {
 	}
 	byKey := map[string][]CodeSymbol{}
 	for _, s := range symbols {
-		if !belongsToBinary(s.FilePath, p.Bin) {
+		if !belongsToBinary(s.FilePath, p.Bin) && !underPath(s.FilePath, p.CodePath) {
 			continue
 		}
 		byKey[normalize(s.Name)] = append(byKey[normalize(s.Name)], s)
@@ -269,7 +274,16 @@ func (p *Plan) Link(symbols []CodeSymbol) (unlinked []string) {
 		})
 		impl := "Implemented by `" + h.Name + "` in " + h.FilePath
 		if h.Summary != "" {
-			impl += ": " + h.Summary
+			impl += ": " + strings.TrimSpace(h.Summary)
+		}
+		if !strings.HasSuffix(impl, ".") {
+			impl += "."
+		}
+		// What the handler calls is the next thing asked ("evict calls
+		// what?"), and it is two hops from the command — further than
+		// retrieval expands, and behind the command's own flags when it does.
+		if len(h.Calls) > 0 {
+			impl += " It calls " + strings.Join(backticked(h.Calls), ", ") + "."
 		}
 		// Second line, under the command's one-line summary: retrieval shows
 		// the start of a hit, and a long synopsis would push this out of it.
@@ -284,6 +298,14 @@ func (p *Plan) Link(symbols []CodeSymbol) (unlinked []string) {
 	return unlinked
 }
 
+func backticked(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = "`" + n + "`"
+	}
+	return out
+}
+
 func insertAfterFirstLine(text, line string) string {
 	first, rest, ok := strings.Cut(text, "\n")
 	if !ok {
@@ -296,6 +318,14 @@ func insertAfterFirstLine(text, line string) string {
 // start_until, startUntil and StartUntil are the same key.
 func normalize(s string) string {
 	return strings.ToLower(strings.NewReplacer("-", "", "_", "", " ", "").Replace(s))
+}
+
+func underPath(file, dir string) bool {
+	dir = strings.Trim(strings.TrimSpace(dir), "/")
+	if dir == "" || file == "" {
+		return false
+	}
+	return strings.HasPrefix(strings.TrimPrefix(file, "./"), dir+"/")
 }
 
 func belongsToBinary(file, bin string) bool {
@@ -324,7 +354,7 @@ type Stats struct {
 // first, as ingest-cli does for the help reference filed under the same id.
 func Import(ctx context.Context, store *knowledge.Store, p *Plan) (Stats, error) {
 	var st Stats
-	meta := map[string]string{"document_id": p.DocID, "source": "cli-help", "cli": p.Bin}
+	meta := map[string]string{"document_id": p.DocID, "source": knowledge.SourceCLIReference, "cli": p.Bin}
 	if err := store.EmbedBatch(ctx, p.Embed, meta); err != nil {
 		return st, fmt.Errorf("embed: %w", err)
 	}

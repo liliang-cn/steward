@@ -60,6 +60,7 @@ steward ingest <dir>         ingest *.md docs
 steward ingest-cli [--repo R] <bin>   walk every subcommand's --help into a command reference AND a
                              graph (command → flag / argument / subcommand); with --repo, each
                              command is linked to the function in R's code graph that implements it
+                             (--code-path <dir> when that code is not named for the binary)
 steward ingest-repo <url>    clone → understand → import (graph), or text fallback
 steward refresh <url|dir>    purge one source (catches deletions) and re-import it
 steward import-graph <f>     import an Understand-Anything knowledge-graph.json
