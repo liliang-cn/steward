@@ -1,0 +1,19 @@
+drbd-reactorctl-edit 
+Edit/Add a plugin configuration
+
+USAGE:
+    drbd-reactorctl edit [FLAGS] [OPTIONS] [--] [configs]...
+
+FLAGS:
+        --disabled    Edit a disabled file
+    -f, --force       Force dangerous edits
+    -h, --help        Prints help information
+
+OPTIONS:
+        --context <context>    Uses the given (cluster) context [default: default]
+        --nodes <nodes>...     Uses only the given nodes from the context [default: ]
+    -t, --type <type>          Plugin type [default: promoter]  [possible values: promoter, prometheus, agentx, umh,
+                               debugger]
+
+ARGS:
+    <configs>...    Configs to edit/add

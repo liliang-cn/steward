@@ -210,6 +210,9 @@ type Store struct {
 	// domainEdgeTypes is the ontology vocabulary the active domain declared,
 	// case-widened by caseVariants. Empty when the domain declared none.
 	domainEdgeTypes []string
+	// structuralEdgeTypes are walked whatever the domain declared; see
+	// WithStructuralEdgeTypes.
+	structuralEdgeTypes []string
 
 	// The declared vocabulary as written, kept for the ontology schema and for
 	// drift reporting. See ontology.go.
@@ -313,10 +316,23 @@ func dedupe(in []string) []string {
 // domain's own relation vocabulary when it declared one, otherwise the
 // code-navigation fallback, so a domain with no ontology behaves as before.
 func (s *Store) expandEdgeTypes() []string {
+	base := codeEdgeTypes
 	if len(s.domainEdgeTypes) > 0 {
-		return s.domainEdgeTypes
+		base = s.domainEdgeTypes
 	}
-	return codeEdgeTypes
+	if len(s.structuralEdgeTypes) == 0 {
+		return base
+	}
+	return dedupe(append(append([]string(nil), base...), s.structuralEdgeTypes...))
+}
+
+// WithStructuralEdgeTypes adds edge types retrieval always walks, whatever the
+// domain declared: the structure steward's own importers write, such as a
+// command's flags. A domain's relation vocabulary names what its product is
+// made of, and a command line's shape is not that — but a hit on a command
+// that cannot reach its flags has lost what the question was about.
+func WithStructuralEdgeTypes(types []string) Option {
+	return func(s *Store) { s.structuralEdgeTypes = caseVariants(types) }
 }
 
 // Open opens (creating if needed) the knowledge DB at path, using the given
@@ -1486,4 +1502,34 @@ func (s *Store) Inventory(ctx context.Context) (*Inventory, error) {
 		inv.Drift = d
 	}
 	return inv, nil
+}
+
+// CodeFunction is a function or method an imported code graph holds.
+type CodeFunction struct {
+	ID       string // graph node id
+	Name     string
+	FilePath string
+}
+
+// CodeFunctions lists the functions the code graph imported for repo holds,
+// for linking things outside the code — a command line's subcommands — to the
+// code that implements them.
+func (s *Store) CodeFunctions(ctx context.Context, repo string) ([]CodeFunction, error) {
+	nodes, err := s.db.Graph().ListNodes(ctx, &graph.GraphFilter{
+		NodeTypes:  []string{"function"},
+		Properties: map[string]string{"repo": repo},
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CodeFunction, 0, len(nodes))
+	for _, n := range nodes {
+		name, _ := n.Properties["name"].(string)
+		file, _ := n.Properties["file_path"].(string)
+		if name == "" {
+			name = n.Content
+		}
+		out = append(out, CodeFunction{ID: n.ID, Name: name, FilePath: file})
+	}
+	return out, nil
 }

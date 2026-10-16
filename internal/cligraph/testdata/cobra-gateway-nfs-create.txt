@@ -1,0 +1,23 @@
+Create NFS gateway
+
+Usage:
+  haify gateway nfs create --resource <name> --service-ip <ip/cidr> --export-path <path> [flags]
+
+Flags:
+      --allowed-ips strings   Allowed client IPs (e.g., 192.168.1.0/24)
+      --export-path string    Export path (e.g., /data)
+      --fs-type string        Filesystem type (ext4, xfs, btrfs) (default "ext4")
+  -h, --help                  help for create
+      --resource string       DRBD resource name
+      --service-ip string     Service IP (e.g., 192.168.1.200/24)
+
+Global Flags:
+  -c, --controller string        Controller address (default "127.0.0.1:3374")
+      --debug                    Trace every step and controller call on stderr (env HAIFY_LOG_LEVEL=debug)
+      --tls                      Connect over TLS (implied by --tls-ca/--tls-cert; env HAIFY_TLS)
+      --tls-ca string            CA bundle that signed the controller certificate (env HAIFY_TLS_CA; default: system trust store)
+      --tls-cert string          Client certificate, for a controller requiring mutual TLS (env HAIFY_TLS_CERT)
+      --tls-insecure             Encrypt but do NOT verify the controller — accepts any certificate (env HAIFY_TLS_INSECURE)
+      --tls-key string           Client private key (env HAIFY_TLS_KEY)
+      --tls-server-name string   Name to verify against the controller certificate (env HAIFY_TLS_SERVER_NAME)
+      --token string             API token (default: HAIFY_TOKEN env, ~/.haify/token, /etc/haify/token)

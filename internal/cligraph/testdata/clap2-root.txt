@@ -1,0 +1,30 @@
+drbd-reactorctl 1.12.0
+Roland Kammerer <roland.kammerer@linbit.com>
+Moritz Wanzenböck <moritz.wanzenboeck@linbit.com>
+Controls a local drbd-reactor daemon
+
+USAGE:
+    drbd-reactorctl [OPTIONS] [SUBCOMMAND]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --config <FILE>        Sets a custom config file [default: /etc/drbd-reactor.toml]
+        --context <context>    Uses the given (cluster) context [default: default]
+        --nodes <nodes>...     Uses only the given nodes from the context [default: ]
+
+SUBCOMMANDS:
+    cat                    (Pretty) print config files
+    disable                Disable plugin
+    edit                   Edit/Add a plugin configuration
+    enable                 enable plugin
+    evict                  Evict a promoter plugin controlled resource
+    help                   Prints this message or the help of the given subcommand(s)
+    ls                     List plugins and show some useful, brief information
+    restart                Restart a plugin
+    rm                     Remove plugin configuration
+    start-until            Start reactor target until specified service in start list
+    status                 Status informatin for a plugin
+    generate-completion    Generate tab-complition for shell

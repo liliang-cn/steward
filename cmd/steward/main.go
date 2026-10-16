@@ -25,6 +25,7 @@ import (
 	"github.com/liliang-cn/steward/web"
 
 	"github.com/liliang-cn/steward/internal/agents"
+	"github.com/liliang-cn/steward/internal/cligraph"
 	"github.com/liliang-cn/steward/internal/config"
 	"github.com/liliang-cn/steward/internal/domain"
 	"github.com/liliang-cn/steward/internal/graphimport"
@@ -303,10 +304,23 @@ func runResolve(args []string) {
 // Ingested through the same path as any other document, so `refresh` and the
 // source quota treat it like the prose it is.
 func runIngestCLI(args []string) {
+	// --repo names the imported code graph whose functions the commands are
+	// linked to. It comes before the binary because everything after the
+	// binary is passed to it.
+	repo := ""
+	for len(args) > 0 && strings.HasPrefix(args[0], "--repo") {
+		if v, ok := strings.CutPrefix(args[0], "--repo="); ok {
+			repo, args = v, args[1:]
+		} else if len(args) > 1 {
+			repo, args = args[1], args[2:]
+		} else {
+			args = args[1:]
+		}
+	}
 	if len(args) == 0 {
-		fail("usage: steward ingest-cli <binary> [args-before-subcommands...]\n" +
+		fail("usage: steward ingest-cli [--repo <code-graph-repo>] <binary> [args-before-subcommands...]\n" +
 			"  e.g. steward ingest-cli /usr/local/bin/sds-cli\n" +
-			"       steward ingest-cli kubectl        (walks every subcommand's --help)")
+			"       steward ingest-cli --repo drbd-reactor drbd-reactorctl   (links commands to the code graph)")
 	}
 	cfg := config.Load()
 	if cfg.EmbAPIKey == "" {
@@ -315,7 +329,7 @@ func runIngestCLI(args []string) {
 	bin, rest := args[0], args[1:]
 	ctx := context.Background()
 
-	doc, st, err := ingest.CLIHelp(ctx, bin, rest...)
+	pages, doc, st, err := ingest.CLIHelpPages(ctx, bin, rest...)
 	if err != nil {
 		fail("walk %s --help: %v", bin, err)
 	}
@@ -350,6 +364,32 @@ func runIngestCLI(args []string) {
 		fail("ingest %s: %v", docID, err)
 	}
 	fmt.Printf("ingested %s — %d commands into %s\n", docID, st.Commands, cfg.KnowledgeDBPath)
+
+	// The same pages as a graph, filed under the same document so the purge
+	// above replaces both.
+	cmds := make([]cligraph.Command, 0, len(pages))
+	for _, p := range pages {
+		cmds = append(cmds, cligraph.Parse(cligraph.Page{Path: p.Path, Help: p.Help}))
+	}
+	plan := cligraph.Build(name, cmds)
+	if repo != "" {
+		fns, ferr := store.CodeFunctions(ctx, repo)
+		if ferr != nil {
+			fail("read code graph %s: %v", repo, ferr)
+		}
+		syms := make([]cligraph.CodeSymbol, 0, len(fns))
+		for _, f := range fns {
+			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath})
+		}
+		if unlinked := plan.Link(syms); len(unlinked) > 0 {
+			fmt.Fprintf(os.Stderr, "  %d command(s) not linked to code in %s: %s\n", len(unlinked), repo, strings.Join(unlinked, ", "))
+		}
+	}
+	gst, err := cligraph.Import(ctx, store, plan)
+	if err != nil {
+		fail("import %s command graph: %v", name, err)
+	}
+	fmt.Printf("graphed %s — %d commands, %d flags, %d arguments, %d linked to code\n", name, gst.Commands, gst.Flags, gst.Args, gst.Links)
 	if len(st.Failed) > 0 {
 		// Named rather than counted: a subcommand that would not run is usually
 		// one that needs an argument, and the operator can tell which.

@@ -39,6 +39,9 @@ repos/docs ───┘                         └── red-line safety wall (
 - `internal/knowledge` — cortexdb wrapper (embed, semantic search, graph upsert).
 - `internal/graphimport` — imports Understand-Anything `knowledge-graph.json`.
 - `internal/ingest` — semantic text ingest for prose docs/skills.
+- `internal/cligraph` — a command line's `--help` pages (cobra, clap, argparse) as a graph:
+  `cli_command` / `cli_flag` / `cli_argument` nodes, `has_subcommand` / `has_flag` /
+  `has_argument` edges, and `implemented_by` from a command to its handler in the code graph.
 - `internal/loganalyze` — product-agnostic log triage engine.
 - `internal/agents` — wires the agent-go Agent (tools + lint). Plain
   function-calling, so a question gets one clean answer.
@@ -54,6 +57,9 @@ steward chat                 multi-turn (history kept across turns)
 steward serve                start the HTTP API (STEWARD_HTTP_ADDR, default :7634)
 steward analyze-log <path>   triage a log file / dir / .tar.gz / .zip, + AI diagnosis
 steward ingest <dir>         ingest *.md docs
+steward ingest-cli [--repo R] <bin>   walk every subcommand's --help into a command reference AND a
+                             graph (command → flag / argument / subcommand); with --repo, each
+                             command is linked to the function in R's code graph that implements it
 steward ingest-repo <url>    clone → understand → import (graph), or text fallback
 steward refresh <url|dir>    purge one source (catches deletions) and re-import it
 steward import-graph <f>     import an Understand-Anything knowledge-graph.json

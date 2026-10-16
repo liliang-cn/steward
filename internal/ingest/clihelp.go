@@ -47,12 +47,27 @@ type CLIHelpStats struct {
 // differently yields just the top-level page, which is still better than
 // nothing and never wrong.
 func CLIHelp(ctx context.Context, bin string, args ...string) (string, CLIHelpStats, error) {
+	_, doc, st, err := CLIHelpPages(ctx, bin, args...)
+	return doc, st, err
+}
+
+// CLIHelpPage is one command's --help output: the subcommand path below the
+// binary (empty for the binary itself) and the text it printed.
+type CLIHelpPage struct {
+	Path []string
+	Help string
+}
+
+// CLIHelpPages is CLIHelp that also returns each page as it was walked, for a
+// caller that reads the pages into structure rather than prose.
+func CLIHelpPages(ctx context.Context, bin string, args ...string) ([]CLIHelpPage, string, CLIHelpStats, error) {
 	name := bin
 	if i := strings.LastIndex(name, "/"); i >= 0 {
 		name = name[i+1:]
 	}
 
 	var st CLIHelpStats
+	var pages []CLIHelpPage
 	seen := map[string]bool{}
 	sections := make([]string, 0, 32)
 
@@ -78,6 +93,7 @@ func CLIHelp(ctx context.Context, bin string, args ...string) (string, CLIHelpSt
 			return nil
 		}
 		st.Commands++
+		pages = append(pages, CLIHelpPage{Path: append([]string(nil), path...), Help: out})
 
 		title := name
 		if key != "" {
@@ -94,13 +110,13 @@ func CLIHelp(ctx context.Context, bin string, args ...string) (string, CLIHelpSt
 	}
 
 	if err := walk(nil); err != nil {
-		return "", st, err
+		return nil, "", st, err
 	}
 	if st.Commands == 0 {
-		return "", st, fmt.Errorf("%s produced no help output — is it the right binary?", bin)
+		return nil, "", st, fmt.Errorf("%s produced no help output — is it the right binary?", bin)
 	}
 	sort.Strings(st.Failed)
-	return cliHelpHeader(name) + "\n" + strings.Join(sections, "\n"), st, nil
+	return pages, cliHelpHeader(name) + "\n" + strings.Join(sections, "\n"), st, nil
 }
 
 func cliHelpHeader(name string) string {

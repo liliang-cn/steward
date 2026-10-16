@@ -1,0 +1,36 @@
+drbd-reactorctl-evict 
+Evict a promoter plugin controlled resource
+
+USAGE:
+    drbd-reactorctl evict [FLAGS] [OPTIONS] [--] [configs]...
+
+FLAGS:
+    -f, --force          
+            Override checks (multiple plugins per snippet/multiple resources per promoter)
+
+    -h, --help           
+            Prints help information
+
+    -k, --keep-masked    
+            If set the target unit will stay masked (i.e., 'systemctl mask --runtime')
+
+    -u, --unmask         
+            If set unmask targets (i.e. the equivalent of 'systemctl unmask').
+            This does not run any evictions.
+            It is used to clear previous '--keep-masked' operations
+
+OPTIONS:
+        --context <context>    
+            Uses the given (cluster) context [default: default]
+
+    -d, --delay <delay>        
+            Positive number of seconds to wait for peer takeover [default: 20]
+
+        --nodes <nodes>...     
+            Uses only the given nodes from the context [default: ]
+
+
+ARGS:
+    <configs>...    
+            Configs to remove
+
