@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -42,7 +43,16 @@ import (
 	"github.com/liliang-cn/steward/internal/textcut"
 )
 
-const version = "steward 0.51.0"
+// version names the module version the binary was built from, which the Go
+// toolchain records: the tag for `go install …@vX.Y.Z`, and the tag or a
+// pseudo-version for a build in a checkout. A constant here was left at
+// 0.51.0 through four releases.
+func version() string {
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		return "steward " + strings.TrimPrefix(bi.Main.Version, "v")
+	}
+	return "steward (devel)"
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -99,7 +109,7 @@ func main() {
 	case "eval":
 		runEval(os.Args[2:])
 	case "version", "-v", "--version":
-		fmt.Println(version)
+		fmt.Println(version())
 	default:
 		usage()
 		os.Exit(2)
