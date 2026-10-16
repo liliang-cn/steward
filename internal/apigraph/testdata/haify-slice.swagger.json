@@ -1,0 +1,750 @@
+{
+ "swagger": "2.0",
+ "info": {
+  "title": "api/proto/v1/haify.proto",
+  "version": "version not set"
+ },
+ "paths": {
+  "/v1/approvals": {
+   "get": {
+    "summary": "Two-person approval ([rbac.approval]). A call on the approval list made\nwithout an approval fails with FAILED_PRECONDITION and leaves a pending\nrequest; once a different user with the approve right approves it, the\nsame caller repeats the identical call and it runs, once.",
+    "operationId": "HaifyController_ListApprovals",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1ListApprovalsResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "includeClosed",
+      "description": "also approved, rejected, used and expired ones",
+      "in": "query",
+      "required": false,
+      "type": "boolean"
+     }
+    ],
+    "tags": [
+     "HaifyController"
+    ]
+   }
+  },
+  "/v1/gateways": {
+   "get": {
+    "operationId": "HaifyController_ListGateways",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1ListGatewaysResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "tags": [
+     "HaifyController"
+    ]
+   }
+  },
+  "/v1/gateways/nfs": {
+   "post": {
+    "summary": "Gateway operations",
+    "operationId": "HaifyController_CreateNFSGateway",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1CreateNFSGatewayResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "body",
+      "in": "body",
+      "required": true,
+      "schema": {
+       "$ref": "#/definitions/v1CreateNFSGatewayRequest"
+      }
+     }
+    ],
+    "tags": [
+     "HaifyController"
+    ]
+   }
+  },
+  "/v1/resources": {
+   "get": {
+    "operationId": "HaifyController_ListResources",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1ListResourcesResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "profile",
+      "description": "profile, when set, lists only that profile's members.",
+      "in": "query",
+      "required": false,
+      "type": "string"
+     }
+    ],
+    "tags": [
+     "HaifyController"
+    ]
+   },
+   "post": {
+    "summary": "Resource operations",
+    "operationId": "HaifyController_CreateResource",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1CreateResourceResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "body",
+      "in": "body",
+      "required": true,
+      "schema": {
+       "$ref": "#/definitions/v1CreateResourceRequest"
+      }
+     }
+    ],
+    "tags": [
+     "HaifyController"
+    ]
+   }
+  },
+  "/v1/resources/{name}": {
+   "get": {
+    "operationId": "HaifyController_GetResource",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1GetResourceResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "name",
+      "in": "path",
+      "required": true,
+      "type": "string"
+     }
+    ],
+    "tags": [
+     "HaifyController"
+    ]
+   },
+   "delete": {
+    "operationId": "HaifyController_DeleteResource",
+    "responses": {
+     "200": {
+      "description": "A successful response.",
+      "schema": {
+       "$ref": "#/definitions/v1DeleteResourceResponse"
+      }
+     },
+     "default": {
+      "description": "An unexpected error response.",
+      "schema": {
+       "$ref": "#/definitions/rpcStatus"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "name",
+      "in": "path",
+      "required": true,
+      "type": "string"
+     }
+    ],
+    "tags": [
+     "HaifyController"
+    ]
+   }
+  }
+ },
+ "definitions": {
+  "v1DeleteResourceResponse": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "boolean"
+    },
+    "message": {
+     "type": "string"
+    }
+   }
+  },
+  "v1ListGatewaysResponse": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "boolean"
+    },
+    "message": {
+     "type": "string"
+    },
+    "gateways": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "$ref": "#/definitions/v1GatewayInfo"
+     }
+    }
+   }
+  },
+  "v1GetResourceResponse": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "boolean"
+    },
+    "message": {
+     "type": "string"
+    },
+    "resource": {
+     "$ref": "#/definitions/v1ResourceInfo"
+    }
+   }
+  },
+  "v1CreateNFSGatewayResponse": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "boolean"
+    },
+    "message": {
+     "type": "string"
+    },
+    "configPath": {
+     "type": "string",
+     "title": "Path to generated config file"
+    }
+   }
+  },
+  "v1CreateResourceResponse": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "boolean"
+    },
+    "message": {
+     "type": "string"
+    }
+   }
+  },
+  "rpcStatus": {
+   "type": "object",
+   "properties": {
+    "code": {
+     "type": "integer",
+     "format": "int32"
+    },
+    "message": {
+     "type": "string"
+    },
+    "details": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "$ref": "#/definitions/protobufAny"
+     }
+    }
+   }
+  },
+  "v1ResourceInfo": {
+   "type": "object",
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "port": {
+     "type": "integer",
+     "format": "int64"
+    },
+    "protocol": {
+     "type": "string"
+    },
+    "nodes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "role": {
+     "type": "string"
+    },
+    "volumes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "$ref": "#/definitions/v1VolumeInfo"
+     }
+    },
+    "nodeStates": {
+     "type": "object",
+     "additionalProperties": {
+      "$ref": "#/definitions/v1NodeResourceState"
+     }
+    },
+    "disklessNodes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "Nodes participating only as diskless quorum tiebreakers (vote, no data)."
+    },
+    "quorumRisk": {
+     "type": "boolean",
+     "description": "True when the resource has two diskful nodes and no tiebreaker, so a\nsingle node failure suspends I/O (no quorum majority)."
+    },
+    "disklessClients": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "Nodes attached as diskless data clients: no local replica, but connected\nover DRBD and promotable to serve the volume over the network. Distinct\nfrom diskless_nodes (quorum-only tiebreakers)."
+    },
+    "labels": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string"
+     }
+    },
+    "profile": {
+     "type": "string"
+    },
+    "wanMode": {
+     "type": "boolean",
+     "description": "WAN replication: wan_mode marks a resource with an off-site asynchronous\ncopy, and dr_node names which of `nodes` holds it. Without this the list\nshows the DR as just another replica, which is exactly wrong \u2014 it is a\ndifferent site, a different protocol, and it never takes over automatically."
+    },
+    "drNode": {
+     "type": "string"
+    },
+    "encrypted": {
+     "type": "boolean",
+     "description": "encrypted is true when every replica's backing volume is a LUKS2 container\n(DRBD \u2192 LUKS \u2192 LVM/ZFS). Encryption at rest only \u2014 DRBD replicates the\nplaintext, so the wire is not protected by this."
+    },
+    "faultDomainRisk": {
+     "type": "string",
+     "description": "fault_domain_risk names the labelled fault domain(s), e.g. \"host=dell\",\nwhose loss would take every copy of the data or the quorum majority."
+    }
+   }
+  },
+  "v1ListApprovalsResponse": {
+   "type": "object",
+   "properties": {
+    "enabled": {
+     "type": "boolean"
+    },
+    "approvals": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "$ref": "#/definitions/v1ApprovalInfo"
+     }
+    }
+   }
+  },
+  "v1CreateResourceRequest": {
+   "type": "object",
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "port": {
+     "type": "integer",
+     "format": "int64"
+    },
+    "nodes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "protocol": {
+     "type": "string"
+    },
+    "sizeGb": {
+     "type": "integer",
+     "format": "int64",
+     "title": "single-volume shorthand; ignored when `volumes` is set"
+    },
+    "pool": {
+     "type": "string",
+     "title": "single-volume shorthand; ignored when `volumes` is set"
+    },
+    "storageType": {
+     "type": "string",
+     "title": "\"lvm\", \"lvm-thin\" or \"zfs\" (applies to all volumes)"
+    },
+    "drbdOptions": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string"
+     }
+    },
+    "volumes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "$ref": "#/definitions/v1VolumeSpec"
+     },
+     "description": "volumes lists one or more DRBD volumes to create atomically (volume 0..N).\nWhen empty, a single volume is created from size_gb/pool for back-compat."
+    },
+    "wan": {
+     "type": "boolean",
+     "description": "WAN replication (opt-in add-on). Absent/false \u21d2 LAN, behaves exactly as\nbefore. `wan` is the master switch; without it the dr_* fields are rejected.\nSee docs/design/wan-replication.md.\n\nroute this resource over the internet via a per-resource haify-proxy pair"
+    },
+    "drNode": {
+     "type": "string",
+     "title": "the DR-site node (must be a registered node); WAN only"
+    },
+    "drEndpoint": {
+     "type": "string",
+     "title": "the DR site's public WAN address the primary dials; WAN only"
+    },
+    "wanPort": {
+     "type": "integer",
+     "format": "int64",
+     "title": "WAN mTLS port (default a random >3000 per resource); WAN only"
+    },
+    "wanEgressAddress": {
+     "type": "string",
+     "description": "wan_egress_address optionally pins the source address the primary's proxy\nbinds before dialing the DR site, so replication leaves over a chosen\ninterface (e.g. a leased line) and reaches the DR firewall from a\npredictable source IP. Empty lets the primary's routing table decide."
+    },
+    "replicas": {
+     "type": "integer",
+     "format": "int64",
+     "description": "replicas requests auto-placement: when `nodes` is empty the controller\npicks this many nodes (most free space in the target pool first). Ignored\nwhen `nodes` is set. 0 means \"not auto-placing\" unless nodes is also empty,\nin which case the controller defaults to 2."
+    },
+    "replicasOnDifferent": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "title": "replicas_on_different names node-label keys (e.g. \"rack\"); during\nauto-placement each replica is put in a distinct value of every listed\nlabel, so a single fault domain never holds two replicas. Only nodes\ncarrying the labels participate. Empty = capacity-only. Ignored when `nodes`\nis set. (Wire-compatible successor of the earlier singular string field.)"
+    },
+    "replicasOnSame": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "replicas_on_same names node-label keys whose value must be IDENTICAL across\nall replicas (e.g. keep every copy in one zone). Composable with\nreplicas_on_different. Ignored when `nodes` is set."
+    },
+    "doNotPlaceWith": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "do_not_place_with names other resources; auto-placement will not put a\nreplica on any node already holding a replica of them (cross-resource\nanti-affinity). Ignored when `nodes` is set."
+    },
+    "labels": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string"
+     }
+    },
+    "profile": {
+     "type": "string"
+    },
+    "encrypt": {
+     "type": "boolean",
+     "description": "encrypt puts a LUKS2 container between DRBD and the backing LVM/ZFS volume\non every replica, so the pool disks hold ciphertext. This is encryption AT\nREST ONLY: DRBD sits ABOVE the crypt layer, so replication traffic between\nnodes is the same plaintext it always was. Chosen once, at creation: there\nis no in-place conversion, and asking for one on a resource that already\nexists is refused rather than half-applied."
+    },
+    "sizeBytes": {
+     "type": "string",
+     "format": "uint64",
+     "description": "size_bytes, for the single-volume shorthand, makes the device exactly\nthis many bytes (rounded up to a 512-byte sector) instead of size_gb\nwhole GiB; size_gb may then be 0. PVE's online Move Disk needs it."
+    }
+   },
+   "title": "Resource messages"
+  },
+  "v1VolumeSpec": {
+   "type": "object",
+   "properties": {
+    "sizeGb": {
+     "type": "integer",
+     "format": "int64"
+    },
+    "pool": {
+     "type": "string",
+     "title": "optional; auto-selected when empty"
+    },
+    "sizeBytes": {
+     "type": "string",
+     "format": "uint64",
+     "title": "exact device size; see CreateResourceRequest.size_bytes"
+    }
+   },
+   "description": "VolumeSpec is one DRBD volume within a resource. storage_type comes from the\nresource; each volume may target its own pool."
+  },
+  "v1ListResourcesResponse": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "boolean"
+    },
+    "message": {
+     "type": "string"
+    },
+    "resources": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "$ref": "#/definitions/v1ResourceInfo"
+     }
+    }
+   }
+  },
+  "v1CreateNFSGatewayRequest": {
+   "type": "object",
+   "properties": {
+    "resource": {
+     "type": "string",
+     "title": "DRBD resource name"
+    },
+    "serviceIp": {
+     "type": "string",
+     "title": "Service IP (e.g., \"192.168.1.200/24\")"
+    },
+    "exportPath": {
+     "type": "string",
+     "title": "Base export path (e.g., \"/data\")"
+    },
+    "allowedIps": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "title": "Allowed client IPs (e.g., [\"192.168.1.0/24\"])"
+    },
+    "fsType": {
+     "type": "string",
+     "title": "Filesystem type (ext4, xfs)"
+    },
+    "options": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string"
+     },
+     "title": "Additional options"
+    }
+   },
+   "title": "Gateway messages"
+  },
+  "v1NodeResourceState": {
+   "type": "object",
+   "properties": {
+    "role": {
+     "type": "string"
+    },
+    "diskState": {
+     "type": "string"
+    },
+    "replicationState": {
+     "type": "string"
+    },
+    "syncPercent": {
+     "type": "number",
+     "format": "double",
+     "description": "Percent of this peer's data in sync (0..100). 100 when steady-state / not\nresyncing. Only meaningful for a peer whose replication_state is a resync\nstate (SyncSource/SyncTarget/PausedSync*)."
+    },
+    "node": {
+     "type": "string",
+     "description": "node is the Haify node name this state belongs to. The map itself is keyed by\nDRBD host name, which is the machine's real hostname and generally is NOT\nthe node name the rest of the API uses \u2014 so without this a caller cannot\npair a state with the entry of `nodes` it describes."
+    },
+    "connection": {
+     "type": "string",
+     "description": "Peer DRBD connection state as the answering node sees it (\"Connected\",\n\"Connecting\", \"StandAlone\", ...). Empty for the answering node itself. A\npeer that is not Connected reports no role, disk or replication state, so\nthis is the only field that tells an unreachable replica from a healthy one."
+    },
+    "tls": {
+     "type": "boolean",
+     "description": "tls is whether the connection to this peer runs over TLS."
+    },
+    "writtenKib": {
+     "type": "string",
+     "format": "uint64",
+     "description": "KiB written to and read from the answering node's own DRBD device since\nit came up there, summed over volumes. Set on the answering node's entry\nonly (the one with no replication_state); unset when DRBD did not report\nthem. Two readings over time give the resource's write and read rate."
+    },
+    "readKib": {
+     "type": "string",
+     "format": "uint64"
+    },
+    "sentKib": {
+     "type": "string",
+     "format": "uint64",
+     "description": "KiB the answering node sent to and received from this peer since their\nconnection came up, summed over volumes. Set on peer entries only."
+    },
+    "receivedKib": {
+     "type": "string",
+     "format": "uint64"
+    }
+   }
+  },
+  "v1GatewayInfo": {
+   "type": "object",
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "type": {
+     "type": "string"
+    },
+    "state": {
+     "type": "string"
+    },
+    "node": {
+     "type": "string"
+    },
+    "resource": {
+     "type": "string"
+    },
+    "volumeId": {
+     "type": "integer",
+     "format": "int64"
+    },
+    "path": {
+     "type": "string"
+    },
+    "options": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "protobufAny": {
+   "type": "object",
+   "properties": {
+    "@type": {
+     "type": "string"
+    }
+   },
+   "additionalProperties": {}
+  },
+  "v1VolumeInfo": {
+   "type": "object",
+   "properties": {
+    "volumeId": {
+     "type": "integer",
+     "format": "int64"
+    },
+    "device": {
+     "type": "string"
+    },
+    "sizeGb": {
+     "type": "string",
+     "format": "uint64"
+    },
+    "pool": {
+     "type": "string",
+     "description": "Storage pool (volume group) backing this volume."
+    },
+    "backingVolume": {
+     "type": "string",
+     "description": "Backing logical volume name inside the pool (e.g. \"<resource>_data\").\nCombined with pool it forms the \"<pool>/<lv>\" path used by snapshot APIs."
+    },
+    "encrypted": {
+     "type": "boolean",
+     "description": "encrypted is true when DRBD consumes this volume through a LUKS2 container\nrather than the backing LV/zvol directly. Snapshots of an encrypted volume\nare snapshots of the ciphertext."
+    },
+    "sizeBytes": {
+     "type": "string",
+     "format": "uint64",
+     "description": "size_bytes is the device's exact size when it was given one; 0 means\nsize_gb whole GiB."
+    }
+   }
+  },
+  "v1ApprovalInfo": {
+   "type": "object",
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "method": {
+     "type": "string",
+     "title": "e.g. DeleteBackupTarget"
+    },
+    "request": {
+     "type": "string",
+     "title": "the call's arguments as JSON, secrets masked"
+    },
+    "requester": {
+     "type": "string"
+    },
+    "createdAt": {
+     "type": "string",
+     "title": "RFC 3339"
+    },
+    "expiresAt": {
+     "type": "string"
+    },
+    "state": {
+     "type": "string",
+     "title": "pending, approved, rejected, used, expired"
+    },
+    "decidedBy": {
+     "type": "string"
+    },
+    "decidedAt": {
+     "type": "string"
+    }
+   }
+  }
+ }
+}

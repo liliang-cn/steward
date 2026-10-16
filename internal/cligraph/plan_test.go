@@ -116,6 +116,19 @@ func TestCobraHandlerNames(t *testing.T) {
 	if len(p.Relations) != 1 || p.Relations[0].To != "f:1" {
 		t.Fatalf("--code-path did not admit cmd/cli: %+v", p.Relations)
 	}
+	// haify names a handler for the tail of its path: nfsCreate handles
+	// gateway nfs create, while create alone would name every create.
+	p = Build("haify", []Command{{Path: []string{"gateway", "nfs", "create"}}, {Path: []string{"resource", "create"}}})
+	p.CodePath = "cmd/cli"
+	unlinked := p.Link([]CodeSymbol{
+		{ID: "f:nfs", Name: "nfsCreate", FilePath: "cmd/cli/gateway.go"},
+		{ID: "f:res", Name: "resourceCreate", FilePath: "cmd/cli/resource.go"},
+		{ID: "f:c1", Name: "create", FilePath: "cmd/cli/a.go"},
+		{ID: "f:c2", Name: "Create", FilePath: "cmd/cli/b.go"},
+	})
+	if len(p.Relations) != 2 || len(unlinked) != 0 {
+		t.Fatalf("tails not matched: %+v unlinked %v", p.Relations, unlinked)
+	}
 	p = Build("cli", []Command{{Path: []string{"gateway", "nfs", "create"}}})
 	p.Link([]CodeSymbol{{ID: "f:1", Name: "newGatewayNfsCreateCmd", FilePath: "cmd/cli/gateway_nfs.go"}})
 	if len(p.Relations) != 1 || p.Relations[0].To != "f:1" {

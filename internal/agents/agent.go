@@ -19,6 +19,7 @@ import (
 	"github.com/liliang-cn/agent-go/v3/pkg/providers"
 
 	"github.com/liliang-cn/steward/internal/alchemyclient"
+	"github.com/liliang-cn/steward/internal/apigraph"
 	"github.com/liliang-cn/steward/internal/cite"
 	"github.com/liliang-cn/steward/internal/cligraph"
 	"github.com/liliang-cn/steward/internal/config"
@@ -59,7 +60,7 @@ func StoreOptions(dom *domain.Domain) []knowledge.Option {
 	}
 	return []knowledge.Option{
 		knowledge.WithRelationTypes(dom.RelationTypes),
-		knowledge.WithStructuralEdgeTypes(cligraph.RelationTypes),
+		knowledge.WithStructuralEdgeTypes(append(append([]string(nil), cligraph.RelationTypes...), apigraph.RelationTypes...)),
 		knowledge.WithOntology(dom.Name, dom.EntityTypes, dom.RelationTypes),
 		knowledge.WithRelationEnds(ends),
 		knowledge.WithImportedVocabulary(importedEntityTypes(dom), importedRelationTypes(dom)),
@@ -74,6 +75,7 @@ func importedEntityTypes(dom *domain.Domain) []string {
 	out := append([]string(nil), dom.Vocabulary.Code.EntityTypes...)
 	out = append(out, graphimport.StructuralEntityTypes...)
 	out = append(out, cligraph.EntityTypes...)
+	out = append(out, apigraph.EntityTypes...)
 	return append(out, schemaimport.TableType)
 }
 
@@ -81,6 +83,7 @@ func importedRelationTypes(dom *domain.Domain) []string {
 	out := append([]string(nil), dom.Vocabulary.Code.RelationTypes...)
 	out = append(out, graphimport.StructuralRelationTypes...)
 	out = append(out, cligraph.RelationTypes...)
+	out = append(out, apigraph.RelationTypes...)
 	return append(out, schemaimport.ReferencesType)
 }
 

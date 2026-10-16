@@ -51,6 +51,11 @@ const referenceSourceShare = 0.6
 // under; see referenceSourceShare.
 const SourceCLIReference = "cli-help"
 
+// SourceAPIReference is the source an API graph's nodes are embedded under.
+// It is recalled with the command-line reference: both are an interface's
+// exact shape, and they share its share of a result.
+const SourceAPIReference = "api-spec"
+
 type sourceKind int
 
 const (
@@ -64,7 +69,7 @@ func kindOf(meta map[string]string, docID string) sourceKind {
 	switch {
 	case isCodeSource(meta, docID):
 		return codeSource
-	case meta["source"] == SourceCLIReference:
+	case meta["source"] == SourceCLIReference, meta["source"] == SourceAPIReference:
 		return referenceSource
 	}
 	return proseSource
@@ -1619,6 +1624,32 @@ func (s *Store) CodeFunctions(ctx context.Context, repo string) ([]CodeFunction,
 				out[i].Calls = append(out[i].Calls, name)
 			}
 		}
+	}
+	return out, nil
+}
+
+// CLICommand is a command the command-line graph holds for one binary.
+type CLICommand struct {
+	ID   string
+	Name string // "haify gateway nfs create"
+}
+
+// CLICommands lists the commands ingest-cli imported for bin, for linking an
+// API's operations to the commands that call them.
+func (s *Store) CLICommands(ctx context.Context, bin string) ([]CLICommand, error) {
+	nodes, err := s.db.Graph().ListNodes(ctx, &graph.GraphFilter{Properties: map[string]string{"cli": bin}})
+	if err != nil {
+		return nil, err
+	}
+	var out []CLICommand
+	for _, n := range nodes {
+		_, isFlag := n.Properties["flag"]
+		_, isArg := n.Properties["argument"]
+		name, _ := n.Properties["command"].(string)
+		if isFlag || isArg || name == "" || n.ID == "" {
+			continue
+		}
+		out = append(out, CLICommand{ID: n.ID, Name: name})
 	}
 	return out, nil
 }

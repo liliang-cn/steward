@@ -25,6 +25,7 @@ import (
 	"github.com/liliang-cn/steward/web"
 
 	"github.com/liliang-cn/steward/internal/agents"
+	"github.com/liliang-cn/steward/internal/apigraph"
 	"github.com/liliang-cn/steward/internal/cligraph"
 	"github.com/liliang-cn/steward/internal/config"
 	"github.com/liliang-cn/steward/internal/domain"
@@ -52,6 +53,8 @@ func main() {
 		runAsk(strings.Join(os.Args[2:], " "))
 	case "ingest":
 		runIngest(strings.Join(os.Args[2:], " "))
+	case "ingest-api":
+		runIngestAPI(os.Args[2:])
 	case "ingest-cli":
 		runIngestCLI(os.Args[2:])
 	case "ingest-repo":
@@ -995,6 +998,8 @@ usage:
   steward analyze-log <path>  triage a log file / dir / .tar.gz / .zip, then AI diagnosis
   steward ingest <dir>        ingest *.md docs from a directory
   steward ingest-repo <url>   one-liner: clone → understand → import (auto-salvages a stall)
+  steward ingest-cli [--repo R [--code-path D]] <bin>   a command line's --help as a reference and a graph
+  steward ingest-api [--repo R [--code-path D]] [--cli BIN] <spec>   an OpenAPI/Swagger spec as a graph
   steward refresh <url|dir>   purge one source (catches deletions) and re-import it
   steward import-graph <f>    import an Understand-Anything knowledge-graph.json
   steward import-schema <f>   import a SQL schema (CREATE TABLE → entity, FK → relation)
@@ -1092,4 +1097,98 @@ func repoName(dir string) string {
 		return "repo"
 	}
 	return strings.TrimSuffix(name, ".git")
+}
+
+// runIngestAPI imports an OpenAPI or Swagger spec as a graph: operations and
+// the schemas they take and return. With --repo, each operation is linked to
+// the server function of its name (under --code-path, when given); with --cli,
+// to the command of that binary spelled with the same words. Run ingest-cli
+// first for the command links to have commands to find.
+func runIngestAPI(args []string) {
+	var repo, codePath, cli, name string
+	var rest []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		for _, f := range []struct {
+			flag   string
+			target *string
+		}{{"--repo", &repo}, {"--code-path", &codePath}, {"--cli", &cli}, {"--name", &name}} {
+			if v, ok := strings.CutPrefix(a, f.flag+"="); ok {
+				*f.target, a = v, ""
+				break
+			}
+			if a == f.flag && i+1 < len(args) {
+				*f.target, a = args[i+1], ""
+				i++
+				break
+			}
+		}
+		if a != "" {
+			rest = append(rest, a)
+		}
+	}
+	if len(rest) != 1 {
+		fail("usage: steward ingest-api [--repo <code-graph-repo> [--code-path <dir>]] [--cli <binary>] [--name <api>] <openapi.json|yaml>\n" +
+			"  e.g. steward ingest-api --repo haify --code-path pkg/controller --cli haify haify.swagger.json")
+	}
+	cfg := config.Load()
+	if cfg.EmbAPIKey == "" {
+		fail("set STEWARD_EMB_API_KEY (or STEWARD_LLM_API_KEY) for embeddings")
+	}
+	spec, err := apigraph.Load(rest[0])
+	if err != nil {
+		fail("read %s: %v", rest[0], err)
+	}
+	if name == "" {
+		name = strings.TrimSuffix(filepath.Base(rest[0]), filepath.Ext(rest[0]))
+		name = strings.TrimSuffix(name, ".swagger")
+	}
+	ctx := context.Background()
+	store, err := openKnowledge(cfg)
+	if err != nil {
+		fail("open knowledge: %v", err)
+	}
+	defer store.Close()
+
+	docID := apigraph.DocID(name)
+	if embN, nodeN, perr := store.PurgeSource(ctx, docID, false); perr != nil {
+		fail("purge previous %s: %v", docID, perr)
+	} else if embN > 0 {
+		fmt.Printf("[purge] %s — removed %d chunks, %d graph nodes\n", docID, embN, nodeN)
+	}
+
+	plan := apigraph.Build(name, spec)
+	if repo != "" {
+		fns, ferr := store.CodeFunctions(ctx, repo)
+		if ferr != nil {
+			fail("read code graph %s: %v", repo, ferr)
+		}
+		syms := make([]apigraph.CodeSymbol, 0, len(fns))
+		for _, f := range fns {
+			syms = append(syms, apigraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary, Calls: f.Calls})
+		}
+		if unlinked := plan.LinkCode(syms, codePath); len(unlinked) > 0 {
+			fmt.Fprintf(os.Stderr, "  %d of %d operation(s) not linked to code in %s\n", len(unlinked), len(spec.Operations), repo)
+		}
+	}
+	if cli != "" {
+		cmds, cerr := store.CLICommands(ctx, cli)
+		if cerr != nil {
+			fail("read %s command graph: %v", cli, cerr)
+		}
+		if len(cmds) == 0 {
+			fmt.Fprintf(os.Stderr, "  no commands of %s in the knowledge base: run ingest-cli first\n", cli)
+		}
+		in := make([]apigraph.Command, 0, len(cmds))
+		for _, c := range cmds {
+			in = append(in, apigraph.Command{ID: c.ID, Name: c.Name, Path: strings.Fields(strings.TrimPrefix(c.Name, cli))})
+		}
+		plan.LinkCommands(in)
+	}
+	st, err := apigraph.Import(ctx, store, plan)
+	if err != nil {
+		fail("import %s: %v", name, err)
+	}
+	fmt.Printf("graphed %s — %d operations, %d schemas, %d linked to code, %d linked to commands, into %s\n",
+		name, st.Operations, st.Schemas, st.Implemented, st.Commands, cfg.KnowledgeDBPath)
 }

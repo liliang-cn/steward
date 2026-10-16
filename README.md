@@ -42,6 +42,9 @@ repos/docs ───┘                         └── red-line safety wall (
 - `internal/cligraph` — a command line's `--help` pages (cobra, clap, argparse) as a graph:
   `cli_command` / `cli_flag` / `cli_argument` nodes, `has_subcommand` / `has_flag` /
   `has_argument` edges, and `implemented_by` from a command to its handler in the code graph.
+- `internal/apigraph` — an OpenAPI/Swagger spec as a graph: `api_operation` / `api_schema` nodes,
+  `accepts` / `returns` / `references` edges, `implemented_by` to the server function and
+  `calls_api` from the command that calls it.
 - `internal/loganalyze` — product-agnostic log triage engine.
 - `internal/agents` — wires the agent-go Agent (tools + lint). Plain
   function-calling, so a question gets one clean answer.
@@ -61,6 +64,10 @@ steward ingest-cli [--repo R] <bin>   walk every subcommand's --help into a comm
                              graph (command → flag / argument / subcommand); with --repo, each
                              command is linked to the function in R's code graph that implements it
                              (--code-path <dir> when that code is not named for the binary)
+steward ingest-api [--repo R [--code-path D]] [--cli BIN] <spec>   an OpenAPI 3 / Swagger 2 spec as a
+                             graph: each operation (method, path, parameters, body and response
+                             fields) and the schemas it takes and returns; --repo links each to the
+                             server function of its name, --cli to the command spelled with the same words
 steward ingest-repo <url>    clone → understand → import (graph), or text fallback
 steward refresh <url|dir>    purge one source (catches deletions) and re-import it
 steward import-graph <f>     import an Understand-Anything knowledge-graph.json

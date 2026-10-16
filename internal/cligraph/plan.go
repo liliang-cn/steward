@@ -243,25 +243,8 @@ func (p *Plan) Link(symbols []CodeSymbol) (unlinked []string) {
 		byKey[normalize(s.Name)] = append(byKey[normalize(s.Name)], s)
 	}
 	for _, c := range p.Commands {
-		var keys []string
-		if len(c.Path) == 0 {
-			keys = []string{"main"}
-		} else {
-			last := c.Path[len(c.Path)-1]
-			joined := strings.Join(c.Path, "_")
-			keys = []string{last, joined, "run" + last, "run" + joined, "new" + last + "cmd", "new" + joined + "cmd", last + "cmd", joined + "cmd"}
-		}
-		var hits []CodeSymbol
-		seen := map[string]bool{}
-		for _, k := range keys {
-			for _, s := range byKey[normalize(k)] {
-				if !seen[s.ID] {
-					seen[s.ID] = true
-					hits = append(hits, s)
-				}
-			}
-		}
 		name := commandName(p.Bin, c.Path)
+		hits := handlerFor(byKey, c.Path)
 		if len(hits) != 1 {
 			unlinked = append(unlinked, name)
 			continue
@@ -312,6 +295,35 @@ func insertAfterFirstLine(text, line string) string {
 		return text + "\n" + line
 	}
 	return first + "\n" + line + "\n" + rest
+}
+
+// handlerFor finds the function handling a command, trying the most specific
+// spelling first. Handlers are named for the whole path ("gatewayNfsCreate"),
+// for its tail ("nfsCreate" for gateway nfs create — haify's convention), or
+// for the last word, with cobra's run/new…Cmd decorations. The longest tail
+// that names exactly one function wins; a tail naming several is ambiguous and
+// stops the search, because a shorter one would only be a vaguer guess.
+func handlerFor(byKey map[string][]CodeSymbol, path []string) []CodeSymbol {
+	if len(path) == 0 {
+		return byKey["main"]
+	}
+	for start := 0; start < len(path); start++ {
+		tail := strings.Join(path[start:], "")
+		var hits []CodeSymbol
+		seen := map[string]bool{}
+		for _, k := range []string{tail, "run" + tail, "new" + tail + "cmd", tail + "cmd"} {
+			for _, s := range byKey[normalize(k)] {
+				if !seen[s.ID] {
+					seen[s.ID] = true
+					hits = append(hits, s)
+				}
+			}
+		}
+		if len(hits) > 0 {
+			return hits
+		}
+	}
+	return nil
 }
 
 // normalize folds the spellings one name takes across languages: start-until,
