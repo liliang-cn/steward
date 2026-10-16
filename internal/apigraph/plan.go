@@ -210,25 +210,69 @@ type CodeSymbol struct {
 	FilePath string
 	Summary  string
 	Calls    []string
+	CallIDs  []string
+}
+
+// outermost narrows same-named candidates to the ones no other candidate
+// calls. haify's controller has two CreateResource: the gRPC method in
+// server_resources.go and the implementation in resources.go it delegates to.
+// The operation is served by the first, and the edge between them says so.
+func outermost(cands []CodeSymbol) []CodeSymbol {
+	if len(cands) < 2 {
+		return cands
+	}
+	called := map[string]bool{}
+	for _, c := range cands {
+		for _, id := range c.CallIDs {
+			called[id] = true
+		}
+	}
+	var out []CodeSymbol
+	for _, c := range cands {
+		if !called[c.ID] {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // LinkCode adds an implemented_by edge from each operation to the server
-// function of the same name under codePath — gRPC-gateway's operation
+// function of the same name — gRPC-gateway's operation
 // HaifyController_CreateResource is served by a CreateResource method — and
-// writes the handler into the operation's text. A name found more than once
-// under the path is left unlinked: an edge to the wrong one reads as the answer.
-func (p *Plan) LinkCode(symbols []CodeSymbol, codePath string) (unlinked []string) {
-	dir := strings.Trim(strings.TrimSpace(codePath), "/") + "/"
+// writes the handler into the operation's text.
+//
+// codePaths are path prefixes tried in order, narrowest first: haify's gRPC
+// methods are in pkg/controller/server*.go, and the same names recur in the
+// package's implementation files, so "pkg/controller/server" decides the 157
+// that live there and "pkg/controller/" the thirty that do not. A prefix that
+// holds the name more than once, after dropping candidates another candidate
+// calls, leaves the operation unlinked rather than trying a broader one: an
+// edge to the wrong function reads as the answer. No prefix: the whole graph.
+func (p *Plan) LinkCode(symbols []CodeSymbol, codePaths ...string) (unlinked []string) {
+	if len(codePaths) == 0 {
+		codePaths = []string{""}
+	}
 	byName := map[string][]CodeSymbol{}
 	for _, s := range symbols {
-		if codePath != "" && !strings.HasPrefix(strings.TrimPrefix(s.FilePath, "./"), dir) {
-			continue
-		}
 		byName[s.Name] = append(byName[s.Name], s)
 	}
 	for _, o := range p.spec.Operations {
-		hits := byName[o.Name()]
-		if o.OperationID == "" || len(hits) != 1 {
+		var hits []CodeSymbol
+		if o.OperationID != "" {
+			for _, prefix := range codePaths {
+				var in []CodeSymbol
+				for _, s := range byName[o.Name()] {
+					if strings.HasPrefix(strings.TrimPrefix(s.FilePath, "./"), strings.TrimPrefix(prefix, "./")) {
+						in = append(in, s)
+					}
+				}
+				if len(in) > 0 {
+					hits = outermost(in)
+					break
+				}
+			}
+		}
+		if len(hits) != 1 {
 			unlinked = append(unlinked, o.Method+" "+o.Path)
 			continue
 		}

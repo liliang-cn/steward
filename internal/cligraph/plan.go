@@ -239,6 +239,7 @@ type CodeSymbol struct {
 	FilePath string
 	Summary  string
 	Calls    []string
+	CallIDs  []string
 }
 
 // Link adds an implemented_by edge from each command to the function that
@@ -348,10 +349,32 @@ func handlerFor(byKey map[string][]CodeSymbol, path []string) []CodeSymbol {
 			}
 		}
 		if len(hits) > 0 {
-			return hits
+			return outermost(hits)
 		}
 	}
 	return nil
+}
+
+// outermost narrows same-named candidates to the ones no other candidate
+// calls: of a command's handler and a helper it delegates to under the same
+// name, the handler.
+func outermost(cands []CodeSymbol) []CodeSymbol {
+	if len(cands) < 2 {
+		return cands
+	}
+	called := map[string]bool{}
+	for _, c := range cands {
+		for _, id := range c.CallIDs {
+			called[id] = true
+		}
+	}
+	var out []CodeSymbol
+	for _, c := range cands {
+		if !called[c.ID] {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // normalize folds the spellings one name takes across languages: start-until,
@@ -360,12 +383,18 @@ func normalize(s string) string {
 	return strings.ToLower(strings.NewReplacer("-", "", "_", "", " ", "").Replace(s))
 }
 
-func underPath(file, dir string) bool {
-	dir = strings.Trim(strings.TrimSpace(dir), "/")
-	if dir == "" || file == "" {
+// underPath reports whether file starts with one of the comma-separated path
+// prefixes in paths ("cmd/cli/", or "pkg/controller/server" for its files).
+func underPath(file, paths string) bool {
+	if file == "" {
 		return false
 	}
-	return strings.HasPrefix(strings.TrimPrefix(file, "./"), dir+"/")
+	for _, p := range strings.Split(paths, ",") {
+		if p = strings.TrimPrefix(strings.TrimSpace(p), "./"); p != "" && strings.HasPrefix(strings.TrimPrefix(file, "./"), p) {
+			return true
+		}
+	}
+	return false
 }
 
 func belongsToBinary(file, bin string) bool {

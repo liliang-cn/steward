@@ -1582,8 +1582,10 @@ type CodeFunction struct {
 	Name     string
 	FilePath string
 	Summary  string
-	// Calls names the functions this one calls, by the code graph's calls edges.
-	Calls []string
+	// Calls names the functions this one calls, by the code graph's calls
+	// edges, and CallIDs are their node ids.
+	Calls   []string
+	CallIDs []string
 }
 
 // CodeFunctions lists the functions the code graph imported for repo holds,
@@ -1620,8 +1622,9 @@ func (s *Store) CodeFunctions(ctx context.Context, repo string) ([]CodeFunction,
 			if e.EdgeType != "calls" {
 				continue
 			}
-			if name := byID[e.ToNodeID]; name != "" && name != out[i].Name {
+			if name := byID[e.ToNodeID]; name != "" && e.ToNodeID != out[i].ID {
 				out[i].Calls = append(out[i].Calls, name)
+				out[i].CallIDs = append(out[i].CallIDs, e.ToNodeID)
 			}
 		}
 	}

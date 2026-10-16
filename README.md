@@ -63,12 +63,13 @@ steward ingest <dir>         ingest *.md docs
 steward ingest-cli [--repo R] <bin>   walk every subcommand's --help into a command reference AND a
                              graph (command → flag / argument / subcommand); with --repo, each
                              command is linked to the function in R's code graph that implements it
-                             (--code-path <dir> when that code is not named for the binary)
+                             (--code-path <prefix>[,…] when that code is not named for the binary)
 steward purge <id> | --prefix <p>  remove a source (its chunks and graph nodes) from the knowledge base
 steward ingest-api [--repo R [--code-path D]] [--cli BIN] <spec>   an OpenAPI 3 / Swagger 2 spec as a
                              graph: each operation (method, path, parameters, body and response
                              fields) and the schemas it takes and returns; --repo links each to the
-                             server function of its name, --cli to the command spelled with the same words
+                             server function of its name (--code-path prefixes, tried narrowest first),
+                             --cli to the command spelled with the same words
 steward ingest-repo <url>    clone → understand → import (graph), or text fallback
 steward refresh <url|dir>    purge one source (catches deletions) and re-import it
 steward import-graph [--repo R] <f>   import an Understand-Anything knowledge-graph.json

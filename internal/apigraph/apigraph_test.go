@@ -115,7 +115,7 @@ func TestLinkCodeOnlyUnderTheServerPath(t *testing.T) {
 		{ID: "f:gw", Name: "CreateNFSGateway", FilePath: "pkg/gateway/nfs.go"},
 		{ID: "f:res1", Name: "CreateResource", FilePath: "pkg/controller/server.go"},
 		{ID: "f:res2", Name: "CreateResource", FilePath: "pkg/controller/legacy.go"},
-	}, "pkg/controller")
+	}, "pkg/controller/")
 	links := map[string]string{}
 	for _, r := range p.Relations {
 		if r.Type == ImplementedByType {
@@ -151,5 +151,46 @@ func TestLinkCommandsByWords(t *testing.T) {
 	}
 	if !strings.Contains(p.Embed["api:haify:POST /v1/gateways/nfs"], "Called by the command `haify gateway nfs create`.") {
 		t.Error("the operation does not name its command")
+	}
+}
+
+// Two CreateResource under the controller: the gRPC method and the
+// implementation it delegates to. The operation is served by the one the
+// other does not call.
+func TestLinkCodePicksTheOutermostOfSameNamedFunctions(t *testing.T) {
+	p := Build("haify", load(t))
+	p.LinkCode([]CodeSymbol{
+		{ID: "f:grpc", Name: "CreateResource", FilePath: "pkg/controller/server_resources.go", CallIDs: []string{"f:impl"}},
+		{ID: "f:impl", Name: "CreateResource", FilePath: "pkg/controller/resources.go"},
+	}, "pkg/controller/")
+	for _, r := range p.Relations {
+		if r.Type == ImplementedByType && r.From == "api:haify:POST /v1/resources" {
+			if r.To != "f:grpc" {
+				t.Fatalf("linked to %s, want the gRPC method", r.To)
+			}
+			return
+		}
+	}
+	t.Fatal("CreateResource not linked")
+}
+
+// Narrowest prefix first: the gRPC method in server_*.go wins over the
+// implementation of the same name; a name found only outside server*.go is
+// found by the broader prefix.
+func TestLinkCodeTriesPrefixesNarrowestFirst(t *testing.T) {
+	p := Build("haify", load(t))
+	p.LinkCode([]CodeSymbol{
+		{ID: "f:grpc", Name: "ListApprovals", FilePath: "pkg/controller/server_approval.go"},
+		{ID: "f:impl", Name: "ListApprovals", FilePath: "pkg/controller/approval.go"},
+		{ID: "f:gw", Name: "ListGateways", FilePath: "pkg/controller/gateway_rpc.go"},
+	}, "pkg/controller/server", "pkg/controller/")
+	links := map[string]string{}
+	for _, r := range p.Relations {
+		if r.Type == ImplementedByType {
+			links[r.From] = r.To
+		}
+	}
+	if links["api:haify:GET /v1/approvals"] != "f:grpc" || links["api:haify:GET /v1/gateways"] != "f:gw" {
+		t.Fatalf("links = %v", links)
 	}
 }

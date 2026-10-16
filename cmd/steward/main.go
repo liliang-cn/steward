@@ -331,7 +331,7 @@ func runIngestCLI(args []string) {
 		}
 	}
 	if len(args) == 0 {
-		fail("usage: steward ingest-cli [--repo <code-graph-repo> [--code-path <dir>]] <binary> [args-before-subcommands...]\n" +
+		fail("usage: steward ingest-cli [--repo <code-graph-repo> [--code-path <prefix>[,<prefix>...]]] <binary> [args-before-subcommands...]\n" +
 			"  e.g. steward ingest-cli /usr/local/bin/sds-cli\n" +
 			"       steward ingest-cli --repo drbd-reactor drbd-reactorctl   (links commands to the code graph)")
 	}
@@ -393,7 +393,7 @@ func runIngestCLI(args []string) {
 		}
 		syms := make([]cligraph.CodeSymbol, 0, len(fns))
 		for _, f := range fns {
-			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary, Calls: f.Calls})
+			syms = append(syms, cligraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary, Calls: f.Calls, CallIDs: f.CallIDs})
 		}
 		if unlinked := plan.Link(syms); len(unlinked) > 0 {
 			fmt.Fprintf(os.Stderr, "  %d command(s) not linked to code in %s: %s\n", len(unlinked), repo, strings.Join(unlinked, ", "))
@@ -1141,8 +1141,9 @@ func runIngestAPI(args []string) {
 		}
 	}
 	if len(rest) != 1 {
-		fail("usage: steward ingest-api [--repo <code-graph-repo> [--code-path <dir>]] [--cli <binary>] [--name <api>] <openapi.json|yaml>\n" +
-			"  e.g. steward ingest-api --repo haify --code-path pkg/controller --cli haify haify.swagger.json")
+		fail("usage: steward ingest-api [--repo <code-graph-repo> [--code-path <prefix>[,<prefix>...]]] [--cli <binary>] [--name <api>] <openapi.json|yaml>\n" +
+			"  e.g. steward ingest-api --repo haify --code-path pkg/controller/server,pkg/controller/ --cli haify haify.swagger.json\n" +
+			"  (prefixes are tried in order, narrowest first)")
 	}
 	cfg := config.Load()
 	if cfg.EmbAPIKey == "" {
@@ -1178,9 +1179,15 @@ func runIngestAPI(args []string) {
 		}
 		syms := make([]apigraph.CodeSymbol, 0, len(fns))
 		for _, f := range fns {
-			syms = append(syms, apigraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary, Calls: f.Calls})
+			syms = append(syms, apigraph.CodeSymbol{ID: f.ID, Name: f.Name, FilePath: f.FilePath, Summary: f.Summary, Calls: f.Calls, CallIDs: f.CallIDs})
 		}
-		if unlinked := plan.LinkCode(syms, codePath); len(unlinked) > 0 {
+		var paths []string
+		for _, cp := range strings.Split(codePath, ",") {
+			if cp = strings.TrimSpace(cp); cp != "" {
+				paths = append(paths, cp)
+			}
+		}
+		if unlinked := plan.LinkCode(syms, paths...); len(unlinked) > 0 {
 			fmt.Fprintf(os.Stderr, "  %d of %d operation(s) not linked to code in %s\n", len(unlinked), len(spec.Operations), repo)
 		}
 	}
