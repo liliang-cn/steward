@@ -108,8 +108,9 @@ func Repo(ctx context.Context, store *knowledge.Store, root, repoName string, do
 		// group, not one per file: a question about types should retrieve types
 		// rather than compete for the same chunk with a list of log strings.
 		st.CodeFiles++
+		spans := funcSpans(rel, string(b))
 		for _, g := range dom.SourceGroups() {
-			vals := extractMatches(string(b), g.Compiled, g.MinLength)
+			vals := extractMatches(string(b), g.Compiled, g.MinLength, spans)
 			if len(vals) == 0 {
 				continue
 			}
@@ -128,21 +129,27 @@ func Repo(ctx context.Context, store *knowledge.Store, root, repoName string, do
 }
 
 // extractMatches returns the de-duplicated group-1 captures in src, dropping
-// anything shorter than minLen.
-func extractMatches(src string, patterns []*regexp.Regexp, minLen int) []string {
+// anything shorter than minLen. With spans, each capture is followed by the
+// function it is in, "message (in Type.Method)", and a message printed from
+// two functions is listed once for each; see enclosing.go.
+func extractMatches(src string, patterns []*regexp.Regexp, minLen int, spans []funcSpan) []string {
 	if minLen <= 0 {
 		minLen = 3
 	}
 	seen := map[string]bool{}
 	for _, re := range patterns {
-		for _, m := range re.FindAllStringSubmatch(src, -1) {
-			if len(m) < 2 {
+		for _, m := range re.FindAllStringSubmatchIndex(src, -1) {
+			if len(m) < 4 || m[2] < 0 {
 				continue
 			}
-			msg := strings.TrimSpace(m[1])
-			if len(msg) >= minLen && !seen[msg] {
-				seen[msg] = true
+			msg := strings.TrimSpace(src[m[2]:m[3]])
+			if len(msg) < minLen {
+				continue
 			}
+			if fn := funcAt(spans, m[0]); fn != "" {
+				msg += " (in " + fn + ")"
+			}
+			seen[msg] = true
 		}
 	}
 	out := make([]string, 0, len(seen))
